@@ -20,6 +20,14 @@ This directory contains detailed documentation for the Boltzmann Machine Trainin
 - Run directory structure
 - Best practices for organization
 
+### [ARCHITECTURE_TERMINOLOGY.md](ARCHITECTURE_TERMINOLOGY.md)
+**Architecture Terminology Guide** - Clarifying "restricted" terminology:
+- Understanding the architecture parameter
+- Difference between RBM and sparse connectivity
+- Why "fully-connected" creates standard RBMs
+- Complete examples with clear descriptions
+- Code implementation details
+
 ## Adding New Documentation
 
 When adding new documentation:

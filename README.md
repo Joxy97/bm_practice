@@ -26,9 +26,9 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed usage instructions.
 ## Features
 
 ### Architecture Support
-- **Fully-Connected**: All visible nodes connected (dense graph)
-- **Restricted**: Sparse connectivity with configurable density
-- **RBM**: Bipartite graphs with hidden units
+- **Fully-Connected (n_hidden=0)**: Dense graph - all visible nodes connected to each other
+- **Fully-Connected (n_hidden>0)**: Standard RBM - complete bipartite graph between visible and hidden layers
+- **Restricted**: Sparse connectivity with configurable density (works with or without hidden units)
 
 ### Advanced Training Features
 - **Gradient Clipping**: Prevents training divergence (configurable norm/value clipping)
@@ -357,14 +357,30 @@ runs = list_runs('outputs')
 latest = get_latest_run('outputs')
 ```
 
+## Architecture Terminology Clarification
+
+**Important**: The `architecture` parameter can be confusing:
+
+- **`architecture: "fully-connected"`** means:
+  - If `n_hidden = 0`: Dense graph (all visible nodes connect to each other)
+  - If `n_hidden > 0`: Complete bipartite RBM (all visible-to-hidden connections, no intra-layer connections)
+
+- **`architecture: "restricted"`** means **sparse connectivity** (random subset of edges), NOT "Restricted Boltzmann Machine":
+  - If `n_hidden = 0`: Sparse visible graph
+  - If `n_hidden > 0`: Sparse bipartite graph
+
+- **"Restricted Boltzmann Machine" (RBM)** in ML literature refers to the bipartite structure with hidden units, achieved by setting `n_hidden > 0` (regardless of density).
+
 ## Examples
 
-### Example 1: Fully Visible BM with Advanced Training
+### Example 1: Dense Fully Visible BM with Advanced Training
+A dense Boltzmann Machine with only visible nodes (all-to-all connections).
+
 ```yaml
 true_model:
   n_visible: 10
   n_hidden: 0
-  architecture: "fully-connected"
+  architecture: "fully-connected"  # Dense graph: all visible nodes connected
 
 training:
   learning_rate: 0.01
@@ -380,23 +396,27 @@ training:
     type: "plateau"
 ```
 
-### Example 2: Restricted Boltzmann Machine
+### Example 2: Restricted Boltzmann Machine (RBM)
+A complete bipartite graph with visible and hidden layers. Note: "fully-connected" here means all possible bipartite connections exist (standard RBM architecture).
+
 ```yaml
 true_model:
   n_visible: 6
   n_hidden: 3
-  architecture: "fully-connected"
+  architecture: "fully-connected"  # Complete bipartite: all visible-to-hidden connections
 
 training:
   hidden_kind: "exact-disc"  # Exact marginalization over hidden units
 ```
 
-### Example 3: Large Sparse Network
+### Example 3: Sparse Visible Network
+A sparse graph with only visible nodes. The "restricted" architecture creates random connectivity (not to be confused with "Restricted Boltzmann Machine" which requires hidden units).
+
 ```yaml
 true_model:
   n_visible: 20
   n_hidden: 0
-  architecture: "restricted"
+  architecture: "restricted"  # Sparse: only 30% of possible visible-visible edges
   connectivity: 0.3
 ```
 
@@ -447,6 +467,7 @@ python -c "import torch; print(torch.cuda.is_available())"
 
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Detailed usage instructions and examples
 - **[Run Directory System](docs/RUN_DIRECTORY_SYSTEM.md)** - Experiment management and reproducibility
+- **[Architecture Terminology Guide](docs/ARCHITECTURE_TERMINOLOGY.md)** - Understanding architecture parameters and RBM terminology
 - **[Configuration Reference](configs/config.yaml)** - Full configuration options with comments
 
 ## Development
