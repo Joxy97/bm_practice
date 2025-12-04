@@ -21,7 +21,7 @@ python main.py --mode full --config configs/config.yaml
 python list_runs.py
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed usage instructions.
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed usage instructions.
 
 ## Features
 
@@ -70,6 +70,10 @@ bm_practice/
 ├── configs/
 │   └── config.yaml              # All hyperparameters & training settings
 │
+├── docs/                        # Documentation
+│   ├── QUICKSTART.md            # Quick start guide
+│   └── RUN_DIRECTORY_SYSTEM.md  # Run management documentation
+│
 ├── models/
 │   ├── data_generator.py        # DataGenerator class
 │   └── dataset.py               # PyTorch Dataset/DataLoader
@@ -97,9 +101,7 @@ bm_practice/
 ├── main.py                      # Main pipeline entry point
 ├── list_runs.py                 # Utility to view past experiments
 ├── .gitignore                   # Excludes outputs and cache
-├── README.md                    # This file
-├── QUICKSTART.md                # Quick start guide
-└── RUN_DIRECTORY_SYSTEM.md      # Run management documentation
+└── README.md                    # This file
 ```
 
 ## Installation
@@ -409,9 +411,9 @@ python -c "import torch; print(torch.cuda.is_available())"
 
 ## Documentation
 
-- [QUICKSTART.md](QUICKSTART.md) - Quick start guide
-- [RUN_DIRECTORY_SYSTEM.md](RUN_DIRECTORY_SYSTEM.md) - Run management details
-- [configs/config.yaml](configs/config.yaml) - Full configuration reference
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Detailed usage instructions and examples
+- **[Run Directory System](docs/RUN_DIRECTORY_SYSTEM.md)** - Experiment management and reproducibility
+- **[Configuration Reference](configs/config.yaml)** - Full configuration options with comments
 
 ## Development
 

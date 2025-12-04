@@ -150,6 +150,9 @@ bm_pipeline/
 ├── main.py               # Main entry point
 ├── run.py                # Alternative entry point
 ├── .gitignore            # Ignore outputs
+├── docs/
+│   ├── QUICKSTART.md     # This file
+│   └── RUN_DIRECTORY_SYSTEM.md  # Run management guide
 ├── README.md             # Full documentation
 └── requirements.txt      # Dependencies
 ```
