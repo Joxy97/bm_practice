@@ -3,11 +3,16 @@
 # Random seed for reproducibility
 seed: 42
 
+# Device configuration
+device:
+  use_cuda: "auto"  # "auto", "cuda", "cpu", or specific device like "cuda:0"
+  # auto: automatically detect and use GPU if available, otherwise CPU
+
 # True Model Configuration (data generation)
 true_model:
-  n_visible: 4
-  n_hidden: 0
-  architecture: "fully-connected"  # "fully-connected" or "restricted"
+  n_visible: 10
+  n_hidden: 5
+  architecture: "restricted"  # "fully-connected" or "restricted"
   connectivity: 0.7  # Only used if architecture is "restricted"
 
   # Parameter initialization
@@ -34,9 +39,9 @@ data:
 # Learned Model Configuration
 learned_model:
   # Should match true model topology
-  n_visible: 4
-  n_hidden: 0
-  architecture: "fully-connected"
+  n_visible: 10
+  n_hidden: 5
+  architecture: "restricted"
   connectivity: 0.7
 
   # Initial parameter scale (smaller than true model)
@@ -46,7 +51,7 @@ learned_model:
 # Training Configuration
 training:
   batch_size: 1000
-  n_epochs: 200
+  n_epochs: 500
   learning_rate: 0.01
   optimizer: "adam"  # "sgd" or "adam"
 
@@ -55,7 +60,7 @@ training:
   prefactor: 1.0
 
   # Hidden unit handling (only if n_hidden > 0)
-  hidden_kind: null  # "exact-disc", "sampling", or null
+  hidden_kind: exact-disc  # "exact-disc", "sampling", or null
 
   # Early stopping
   early_stopping:

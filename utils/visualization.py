@@ -82,14 +82,6 @@ def plot_model_parameters(
     axes[1].set_xticks(range(n_nodes))
     axes[1].set_yticks(range(n_nodes))
 
-    # Add text annotations for small matrices
-    if n_nodes <= 10:
-        for i in range(n_nodes):
-            for j in range(n_nodes):
-                text_color = 'white' if abs(weight_matrix[i, j]) > max_weight * 0.5 else 'black'
-                axes[1].text(j, i, f'{weight_matrix[i, j]:.2f}',
-                           ha="center", va="center", color=text_color, fontsize=8)
-
     # Add colorbar
     cbar = plt.colorbar(im, ax=axes[1])
     cbar.set_label('Weight Value', fontsize=10)
@@ -255,23 +247,6 @@ def plot_model_comparison(
     axes[1, 2].set_xticks(range(n_nodes))
     axes[1, 2].set_yticks(range(n_nodes))
     plt.colorbar(im3, ax=axes[1, 2])
-
-    # Add text annotations for small matrices
-    if n_nodes <= 10:
-        for i in range(n_nodes):
-            for j in range(n_nodes):
-                # True
-                text_color = 'white' if abs(true_weight_matrix[i, j]) > max_weight * 0.5 else 'black'
-                axes[1, 0].text(j, i, f'{true_weight_matrix[i, j]:.2f}',
-                              ha="center", va="center", color=text_color, fontsize=7)
-                # Learned
-                text_color = 'white' if abs(learned_weight_matrix[i, j]) > max_weight * 0.5 else 'black'
-                axes[1, 1].text(j, i, f'{learned_weight_matrix[i, j]:.2f}',
-                              ha="center", va="center", color=text_color, fontsize=7)
-                # Difference
-                text_color = 'white' if abs(diff_matrix[i, j]) > max_weight * 0.5 else 'black'
-                axes[1, 2].text(j, i, f'{diff_matrix[i, j]:.2f}',
-                              ha="center", va="center", color=text_color, fontsize=7)
 
     plt.tight_layout()
 

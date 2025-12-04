@@ -22,6 +22,7 @@ class BoltzmannMachineTrainer:
         self,
         model: GRBM,
         config: Dict[str, Any],
+        device: torch.device,
         sampler: Optional[Any] = None
     ):
         """
@@ -30,9 +31,11 @@ class BoltzmannMachineTrainer:
         Args:
             model: GraphRestrictedBoltzmannMachine instance
             config: Training configuration dictionary
+            device: torch device (CPU or CUDA)
             sampler: D-Wave sampler (default: SimulatedAnnealingSampler)
         """
-        self.model = model
+        self.device = device
+        self.model = model.to(device)  # Move model to device
         self.config = config
         self.training_config = config['training']
 
@@ -154,6 +157,9 @@ class BoltzmannMachineTrainer:
         model_samples = self._sample_from_model()
 
         for batch_idx, data_batch in enumerate(train_loader):
+            # Move data to device
+            data_batch = data_batch.to(self.device)
+
             # Zero gradients
             self.optimizer.zero_grad()
 
@@ -209,6 +215,8 @@ class BoltzmannMachineTrainer:
 
         with torch.no_grad():
             for data_batch in val_loader:
+                # Move data to device
+                data_batch = data_batch.to(self.device)
                 loss = self._compute_loss(data_batch, model_samples)
                 val_losses.append(loss.item())
 
@@ -237,6 +245,8 @@ class BoltzmannMachineTrainer:
 
         with torch.no_grad():
             for data_batch in test_loader:
+                # Move data to device
+                data_batch = data_batch.to(self.device)
                 loss = self._compute_loss(data_batch, model_samples)
                 test_losses.append(loss.item())
 

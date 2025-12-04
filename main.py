@@ -24,7 +24,10 @@ from utils import (
     generate_random_parameters,
     plot_model_parameters,
     plot_training_history,
-    plot_model_comparison
+    plot_model_comparison,
+    get_device,
+    print_device_info,
+    set_device_seeds
 )
 
 
@@ -86,8 +89,12 @@ def train_model(config: dict, dataset_path: str = None):
     print("STEP 2: MODEL TRAINING")
     print("="*70)
 
+    # Initialize device
+    device = get_device(config)
+    print_device_info(device)
+
     # Set seeds
-    set_seeds(config['seed'])
+    set_device_seeds(config['seed'], device)
 
     # Determine dataset path
     if dataset_path is None:
@@ -156,7 +163,7 @@ def train_model(config: dict, dataset_path: str = None):
 
     # Create trainer
     sampler = SimulatedAnnealingSampler()
-    trainer = BoltzmannMachineTrainer(learned_model, config, sampler)
+    trainer = BoltzmannMachineTrainer(learned_model, config, device, sampler)
 
     # Train
     trainer.train(train_loader, val_loader, verbose=True)
