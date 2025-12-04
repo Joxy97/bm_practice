@@ -27,18 +27,18 @@ This will:
 After running, all outputs are organized in `bm_pipeline/outputs/`:
 
 ```
-bm_pipeline/outputs/
+bm_pipeline/outputs/{dataset_name+date_time}
 ├── data/
-│   └── bm_dataset_v1.csv          # Generated samples
+│   └── {dataset_name}.csv            # Generated samples
 ├── plots/
-│   ├── true_model_parameters.png   # True model visualization
-│   ├── learned_model_parameters.png # Learned model visualization
-│   ├── training_history.png         # Loss, gradients, temperature
-│   └── model_comparison.png         # Side-by-side comparison
+│   ├── true_model_parameters.png     # True model visualization
+│   ├── learned_model_parameters.png  # Learned model visualization
+│   ├── training_history.png          # Loss, gradients, temperature
+│   └── model_comparison.png          # Side-by-side comparison
 ├── models/
-│   └── final_model.pt              # Final epoch checkpoint
+│   └── final_model.pt                # Final epoch checkpoint
 └── checkpoints/
-    └── best_model.pt               # Best validation checkpoint
+    └── best_model.pt                 # Best validation checkpoint
 ```
 
 ## Individual Pipeline Steps

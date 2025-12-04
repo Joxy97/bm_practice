@@ -27,7 +27,9 @@ from utils import (
     plot_model_comparison,
     get_device,
     print_device_info,
-    set_device_seeds
+    set_device_seeds,
+    create_run_directory,
+    update_config_paths
 )
 
 
@@ -269,6 +271,12 @@ def main():
     print("="*70)
 
     try:
+        # Create run directory with timestamp
+        run_paths = create_run_directory(config)
+
+        # Update config with run-specific paths
+        config = update_config_paths(config, run_paths)
+
         if args.mode == 'generate':
             # Only generate data
             generate_data(config)
@@ -286,15 +294,15 @@ def main():
         print("\n" + "="*70)
         print("PIPELINE COMPLETE!")
         print("="*70)
+        print(f"\nRun directory: {run_paths['run_dir']}")
         print(f"\nGenerated files:")
-        plot_dir = config.get('logging', {}).get('plot_dir', 'plots')
-        print(f"  Plots: {plot_dir}/")
+        print(f"  Config:      {os.path.join(run_paths['run_dir'], 'config.yaml')}")
+        print(f"  Plots:       {run_paths['plot_dir']}/")
         if args.mode in ['train', 'full']:
-            model_dir = config.get('paths', {}).get('model_dir', 'saved_models')
-            print(f"  Models: {model_dir}/")
+            print(f"  Models:      {run_paths['model_dir']}/")
+            print(f"  Checkpoints: {run_paths['checkpoint_dir']}/")
         if args.mode in ['generate', 'full']:
-            data_dir = config.get('paths', {}).get('data_dir', 'data')
-            print(f"  Data: {data_dir}/")
+            print(f"  Data:        {run_paths['data_dir']}/")
         print("="*70 + "\n")
 
     except Exception as e:

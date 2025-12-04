@@ -11,8 +11,8 @@ device:
 # True Model Configuration (data generation)
 true_model:
   n_visible: 10
-  n_hidden: 5
-  architecture: "restricted"  # "fully-connected" or "restricted"
+  n_hidden: 0
+  architecture: "fully-connected"  # "fully-connected" or "restricted"
   connectivity: 0.7  # Only used if architecture is "restricted"
 
   # Parameter initialization
@@ -21,7 +21,7 @@ true_model:
 
 # Data Generation
 data:
-  dataset_name: "bm_dataset_v1"
+  dataset_name: "bm_toy_dataset"
   n_samples: 10000
   num_reads: 5000  # Samples per D-Wave API call
   prefactor: 1.0
@@ -40,8 +40,8 @@ data:
 learned_model:
   # Should match true model topology
   n_visible: 10
-  n_hidden: 5
-  architecture: "restricted"
+  n_hidden: 0
+  architecture: "fully-connected"
   connectivity: 0.7
 
   # Initial parameter scale (smaller than true model)
@@ -55,12 +55,40 @@ training:
   learning_rate: 0.01
   optimizer: "adam"  # "sgd" or "adam"
 
-  # Model sampling during training
-  model_sample_size: 1000
-  prefactor: 1.0
+  # Optimizer parameters
+  optimizer_params:
+    betas: [0.85, 0.999]  # Slightly lower momentum for noisy BM gradients
+    eps: 1.0e-7
+    weight_decay: 0.0     # Use dedicated regularization instead
 
-  # Hidden unit handling (only if n_hidden > 0)
-  hidden_kind: exact-disc  # "exact-disc", "sampling", or null
+  # Gradient clipping (prevents divergence)
+  gradient_clipping:
+    enabled: true
+    method: "norm"        # "norm" or "value"
+    max_norm: 1.0         # Maximum gradient norm
+    max_value: 0.5        # Maximum gradient value (if method="value")
+
+  # Regularization (prevents overfitting and unbounded parameters)
+  regularization:
+    linear_l2: 0.001      # L2 penalty on linear biases
+    quadratic_l2: 0.01    # L2 penalty on quadratic weights
+    quadratic_l1: 0.0     # L1 penalty for sparsity (optional)
+
+  # Learning rate scheduling
+  lr_scheduler:
+    enabled: true
+    type: "plateau"       # "plateau", "step", "cosine", or "exponential"
+    # Plateau-specific params
+    factor: 0.5           # Reduce LR by this factor
+    patience: 15          # Epochs without improvement before reducing
+    min_lr: 1.0e-5        # Minimum learning rate
+    monitor: "val_loss"   # Metric to monitor
+    # Step-specific params
+    step_size: 100        # For type="step"
+    gamma: 0.5            # For type="step" or "exponential"
+    # Cosine-specific params
+    T_max: 50             # For type="cosine"
+    eta_min: 1.0e-5       # For type="cosine"
 
   # Early stopping
   early_stopping:
@@ -70,6 +98,13 @@ training:
     metric: "val_loss"          # Metric to monitor: "val_loss", "train_loss", "grad_norm"
     mode: "min"                 # "min" for loss, "max" for accuracy-like metrics
     restore_best_weights: true  # Restore best model weights after early stopping
+  
+  # Model sampling during training
+  model_sample_size: 1000
+  prefactor: 1.0
+
+  # Hidden unit handling (only if n_hidden > 0)
+  hidden_kind: null  # "exact-disc", "sampling", or null (null for fully visible BM)
 
   # Checkpointing
   save_best_model: true

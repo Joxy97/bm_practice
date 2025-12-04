@@ -5,6 +5,13 @@ from .parameters import generate_random_parameters
 from .visualization import plot_model_parameters, plot_training_history, plot_model_comparison
 from .config_loader import load_config, save_config
 from .device import get_device, print_device_info, move_to_device, set_device_seeds
+from .run_manager import (
+    create_run_directory,
+    update_config_paths,
+    list_runs,
+    get_latest_run,
+    print_run_summary
+)
 
 __all__ = [
     'create_fully_connected_topology',
@@ -18,5 +25,10 @@ __all__ = [
     'get_device',
     'print_device_info',
     'move_to_device',
-    'set_device_seeds'
+    'set_device_seeds',
+    'create_run_directory',
+    'update_config_paths',
+    'list_runs',
+    'get_latest_run',
+    'print_run_summary'
 ]

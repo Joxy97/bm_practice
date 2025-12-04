@@ -5,7 +5,9 @@
       "Bash(python -m bm_pipeline.main:*)",
       "Bash(ls:*)",
       "Bash(tree:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(find:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

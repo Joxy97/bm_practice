@@ -79,17 +79,93 @@ class BoltzmannMachineTrainer:
         self.checkpoint_dir = self.training_config.get('checkpoint_dir', 'checkpoints')
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
+        # Gradient clipping configuration
+        self.grad_clip_config = self.training_config.get('gradient_clipping', {})
+        self.grad_clip_enabled = self.grad_clip_config.get('enabled', False)
+        self.grad_clip_method = self.grad_clip_config.get('method', 'norm')
+        self.max_grad_norm = self.grad_clip_config.get('max_norm', 1.0)
+        self.max_grad_value = self.grad_clip_config.get('max_value', 0.5)
+
+        # Regularization configuration
+        self.reg_config = self.training_config.get('regularization', {})
+        self.linear_l2 = self.reg_config.get('linear_l2', 0.0)
+        self.quadratic_l2 = self.reg_config.get('quadratic_l2', 0.0)
+        self.quadratic_l1 = self.reg_config.get('quadratic_l1', 0.0)
+
+        # Learning rate scheduler
+        self.lr_scheduler = self._create_lr_scheduler()
+
     def _create_optimizer(self):
         """Create optimizer based on config."""
         optimizer_name = self.training_config['optimizer'].lower()
         lr = self.training_config['learning_rate']
 
+        # Get optimizer parameters
+        optimizer_params = self.training_config.get('optimizer_params', {})
+
         if optimizer_name == 'sgd':
-            return torch.optim.SGD(self.model.parameters(), lr=lr)
+            momentum = optimizer_params.get('momentum', 0.0)
+            dampening = optimizer_params.get('dampening', 0.0)
+            nesterov = optimizer_params.get('nesterov', False)
+            return torch.optim.SGD(
+                self.model.parameters(),
+                lr=lr,
+                momentum=momentum,
+                dampening=dampening,
+                nesterov=nesterov
+            )
         elif optimizer_name == 'adam':
-            return torch.optim.Adam(self.model.parameters(), lr=lr)
+            betas = tuple(optimizer_params.get('betas', [0.9, 0.999]))
+            eps = optimizer_params.get('eps', 1e-8)
+            weight_decay = optimizer_params.get('weight_decay', 0.0)
+            amsgrad = optimizer_params.get('amsgrad', False)
+            return torch.optim.Adam(
+                self.model.parameters(),
+                lr=lr,
+                betas=betas,
+                eps=eps,
+                weight_decay=weight_decay,
+                amsgrad=amsgrad
+            )
         else:
             raise ValueError(f"Unknown optimizer: {optimizer_name}")
+
+    def _create_lr_scheduler(self):
+        """Create learning rate scheduler based on config."""
+        lr_config = self.training_config.get('lr_scheduler', {})
+
+        if not lr_config.get('enabled', False):
+            return None
+
+        scheduler_type = lr_config.get('type', 'plateau').lower()
+
+        if scheduler_type == 'plateau':
+            return torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode='min',
+                factor=lr_config.get('factor', 0.5),
+                patience=lr_config.get('patience', 10),
+                min_lr=lr_config.get('min_lr', 1e-6)
+            )
+        elif scheduler_type == 'step':
+            return torch.optim.lr_scheduler.StepLR(
+                self.optimizer,
+                step_size=lr_config.get('step_size', 100),
+                gamma=lr_config.get('gamma', 0.5)
+            )
+        elif scheduler_type == 'exponential':
+            return torch.optim.lr_scheduler.ExponentialLR(
+                self.optimizer,
+                gamma=lr_config.get('gamma', 0.95)
+            )
+        elif scheduler_type == 'cosine':
+            return torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer,
+                T_max=lr_config.get('T_max', 50),
+                eta_min=lr_config.get('eta_min', 1e-6)
+            )
+        else:
+            raise ValueError(f"Unknown scheduler type: {scheduler_type}")
 
     def _sample_from_model(self) -> torch.Tensor:
         """Sample from the current model."""
@@ -115,7 +191,7 @@ class BoltzmannMachineTrainer:
         model_samples: torch.Tensor
     ) -> torch.Tensor:
         """
-        Compute the quasi-objective loss.
+        Compute the quasi-objective loss with regularization.
 
         Args:
             data_batch: Batch of observed data, shape (batch_size, n_visible)
@@ -127,6 +203,7 @@ class BoltzmannMachineTrainer:
         hidden_kind = self.training_config.get('hidden_kind')
         prefactor = self.training_config['prefactor']
 
+        # Compute base loss
         loss = self.model.quasi_objective(
             data_batch,
             model_samples,
@@ -135,6 +212,16 @@ class BoltzmannMachineTrainer:
             sampler=self.sampler if hidden_kind == "sampling" else None,
             sample_kwargs={'num_reads': 100} if hidden_kind == "sampling" else None
         )
+
+        # Add regularization
+        if self.linear_l2 > 0:
+            loss = loss + self.linear_l2 * self.model._linear.pow(2).sum()
+
+        if self.quadratic_l2 > 0:
+            loss = loss + self.quadratic_l2 * self.model._quadratic.pow(2).sum()
+
+        if self.quadratic_l1 > 0:
+            loss = loss + self.quadratic_l1 * self.model._quadratic.abs().sum()
 
         return loss
 
@@ -169,7 +256,20 @@ class BoltzmannMachineTrainer:
             # Backward pass
             loss.backward()
 
-            # Compute gradient norm
+            # Gradient clipping
+            if self.grad_clip_enabled:
+                if self.grad_clip_method == 'norm':
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        self.max_grad_norm
+                    )
+                elif self.grad_clip_method == 'value':
+                    torch.nn.utils.clip_grad_value_(
+                        self.model.parameters(),
+                        self.max_grad_value
+                    )
+
+            # Compute gradient norm (after clipping)
             grad_norm = (
                 self.model._linear.grad.abs().mean().item() +
                 self.model._quadratic.grad.abs().mean().item()
@@ -365,6 +465,35 @@ class BoltzmannMachineTrainer:
             print(f"Learning rate:   {self.training_config['learning_rate']}")
             print(f"Optimizer:       {self.training_config['optimizer']}")
             print(f"Model samples:   {self.training_config['model_sample_size']}")
+
+            # Gradient clipping
+            if self.grad_clip_enabled:
+                print(f"\nGradient Clipping:")
+                print(f"  Method:        {self.grad_clip_method}")
+                if self.grad_clip_method == 'norm':
+                    print(f"  Max norm:      {self.max_grad_norm}")
+                else:
+                    print(f"  Max value:     {self.max_grad_value}")
+
+            # Regularization
+            if self.linear_l2 > 0 or self.quadratic_l2 > 0 or self.quadratic_l1 > 0:
+                print(f"\nRegularization:")
+                if self.linear_l2 > 0:
+                    print(f"  Linear L2:     {self.linear_l2}")
+                if self.quadratic_l2 > 0:
+                    print(f"  Quadratic L2:  {self.quadratic_l2}")
+                if self.quadratic_l1 > 0:
+                    print(f"  Quadratic L1:  {self.quadratic_l1}")
+
+            # LR Scheduler
+            if self.lr_scheduler is not None:
+                print(f"\nLR Scheduler:")
+                print(f"  Type:          {self.training_config['lr_scheduler']['type']}")
+                if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    print(f"  Factor:        {self.training_config['lr_scheduler']['factor']}")
+                    print(f"  Patience:      {self.training_config['lr_scheduler']['patience']}")
+
+            # Early stopping
             if self.early_stopping_enabled:
                 print(f"\nEarly Stopping:")
                 print(f"  Metric:        {self.monitor_metric}")
@@ -396,12 +525,24 @@ class BoltzmannMachineTrainer:
             if val_loss is not None:
                 self.history['val_loss'].append(val_loss)
 
+            # Update learning rate scheduler
+            if self.lr_scheduler is not None:
+                if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    # ReduceLROnPlateau needs a metric
+                    metric_to_monitor = val_loss if val_loss is not None else train_metrics['loss']
+                    self.lr_scheduler.step(metric_to_monitor)
+                else:
+                    # Other schedulers don't need a metric
+                    self.lr_scheduler.step()
+
             # Log progress
             if verbose and epoch % log_interval == 0:
+                current_lr = self.optimizer.param_groups[0]['lr']
                 log_str = f"Epoch {epoch:3d}: Train Loss={train_metrics['loss']:8.4f}"
                 if val_loss is not None:
                     log_str += f", Val Loss={val_loss:8.4f}"
                 log_str += f", Grad={train_metrics['grad_norm']:.4f}"
+                log_str += f", LR={current_lr:.2e}"
                 if train_metrics['beta'] is not None:
                     log_str += f", beta={train_metrics['beta']:.4f}"
                 print(log_str)
