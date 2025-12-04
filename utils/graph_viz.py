@@ -54,19 +54,10 @@ def visualize_bm_graph(
     # Create figure
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Draw edges with curved connections for bipartite layouts
+    # Draw edges, using arches for intra-layer SBM/RBM edges to make them legible
     if model_type in ["rbm", "sbm"]:
-        # Use curved edges to show all connections clearly
-        nx.draw_networkx_edges(
-            G, pos,
-            edge_color='gray',
-            alpha=0.3,
-            width=1.5,
-            ax=ax,
-            connectionstyle='arc3,rad=0.1'
-        )
+        _draw_bipartite_edges(ax, G, pos, visible_nodes, hidden_nodes)
     else:
-        # Straight edges for FVBM (circular layout)
         nx.draw_networkx_edges(
             G, pos,
             edge_color='gray',
@@ -200,6 +191,65 @@ def _create_layout(
     return pos
 
 
+def _draw_bipartite_edges(
+    ax,
+    G: nx.Graph,
+    pos: dict,
+    visible_nodes: List[int],
+    hidden_nodes: List[int],
+    edge_color: str = 'gray',
+    alpha: float = 0.3,
+    width: float = 1.5
+) -> None:
+    """
+    Draw bipartite edges with arches for intra-layer connectivities.
+    """
+    vv_edges = []
+    vh_edges = []
+    hh_edges = []
+
+    visible_set = set(visible_nodes)
+    hidden_set = set(hidden_nodes)
+
+    for u, v in G.edges():
+        if u in visible_set and v in visible_set:
+            vv_edges.append((u, v))
+        elif u in hidden_set and v in hidden_set:
+            hh_edges.append((u, v))
+        else:
+            vh_edges.append((u, v))
+
+    if vv_edges:
+        nx.draw_networkx_edges(
+            G, pos,
+            edgelist=vv_edges,
+            edge_color=edge_color,
+            alpha=alpha,
+            width=width,
+            ax=ax,
+            connectionstyle='arc3,rad=0.25'
+        )
+    if hh_edges:
+        nx.draw_networkx_edges(
+            G, pos,
+            edgelist=hh_edges,
+            edge_color=edge_color,
+            alpha=alpha,
+            width=width,
+            ax=ax,
+            connectionstyle='arc3,rad=-0.25'
+        )
+    if vh_edges:
+        nx.draw_networkx_edges(
+            G, pos,
+            edgelist=vh_edges,
+            edge_color=edge_color,
+            alpha=alpha,
+            width=width,
+            ax=ax
+        )
+
+
 def visualize_topology_from_config(
     config: dict,
     model_key: str = 'true_model',
@@ -288,10 +338,9 @@ def compare_topologies(
         # Layout
         pos = _create_layout(visible_nodes, hidden_nodes, model_config['model_type'])
 
-        # Draw edges with curved connections for bipartite layouts
+        # Draw edges with arching intra-layer lines for bipartite layouts
         if model_config['model_type'] in ["rbm", "sbm"]:
-            nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax,
-                                   connectionstyle='arc3,rad=0.1')
+            _draw_bipartite_edges(ax, G, pos, visible_nodes, hidden_nodes)
         else:
             nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax)
 

@@ -96,7 +96,7 @@ for i, config_tuple in enumerate(configs[:3]):
 
     from utils.topology import create_topology
     import networkx as nx
-    from utils.graph_viz import _create_layout
+    from utils.graph_viz import _create_layout, _draw_bipartite_edges
 
     config, model_key, title = config_tuple
     model_config = config[model_key]
@@ -122,10 +122,8 @@ for i, config_tuple in enumerate(configs[:3]):
     # Layout
     pos = _create_layout(visible_nodes, hidden_nodes, model_config['model_type'])
 
-    # Draw edges with curved connections for bipartite layouts
     if model_config['model_type'] in ["rbm", "sbm"]:
-        nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax,
-                               connectionstyle='arc3,rad=0.1')
+        _draw_bipartite_edges(ax, G, pos, visible_nodes, hidden_nodes)
     else:
         nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax)
 
@@ -165,6 +163,10 @@ for i, config_tuple in enumerate(configs[3:]):
     config, model_key, title = config_tuple
     model_config = config[model_key]
 
+    from utils.topology import create_topology
+    import networkx as nx
+    from utils.graph_viz import _create_layout, _draw_bipartite_edges
+
     # Create topology
     nodes, edges, hidden_nodes = create_topology(
         n_visible=model_config['n_visible'],
@@ -186,10 +188,8 @@ for i, config_tuple in enumerate(configs[3:]):
     # Layout
     pos = _create_layout(visible_nodes, hidden_nodes, model_config['model_type'])
 
-    # Draw edges with curved connections for bipartite layouts
     if model_config['model_type'] in ["rbm", "sbm"]:
-        nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax,
-                               connectionstyle='arc3,rad=0.1')
+        _draw_bipartite_edges(ax, G, pos, visible_nodes, hidden_nodes)
     else:
         nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax)
 
