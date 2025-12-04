@@ -359,6 +359,27 @@ runs = list_runs('outputs')
 latest = get_latest_run('outputs')
 ```
 
+### Graph Visualization
+```python
+from utils import visualize_topology_from_config, compare_topologies, load_config
+
+# Visualize a topology from config
+config = load_config('configs/config.yaml')
+visualize_topology_from_config(
+    config,
+    model_key='true_model',
+    save_path='outputs/topology_viz.png'
+)
+
+# Compare multiple topologies
+configs = [
+    (config_fvbm, 'true_model', 'Dense FVBM'),
+    (config_rbm, 'true_model', 'Dense RBM'),
+    (config_sbm, 'true_model', 'Dense SBM')
+]
+compare_topologies(configs, save_path='outputs/comparison.png')
+```
+
 ## Model Configuration
 
 The new configuration scheme uses clear, explicit parameters:

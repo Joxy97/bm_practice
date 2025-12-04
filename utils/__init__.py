@@ -3,6 +3,7 @@
 from .topology import create_topology, create_fully_connected_topology, create_restricted_topology
 from .parameters import generate_random_parameters
 from .visualization import plot_model_parameters, plot_training_history, plot_model_comparison
+from .graph_viz import visualize_bm_graph, visualize_topology_from_config, compare_topologies
 from .config_loader import load_config, save_config
 from .device import get_device, print_device_info, move_to_device, set_device_seeds
 from .run_manager import (
@@ -21,6 +22,9 @@ __all__ = [
     'plot_model_parameters',
     'plot_training_history',
     'plot_model_comparison',
+    'visualize_bm_graph',
+    'visualize_topology_from_config',
+    'compare_topologies',
     'load_config',
     'save_config',
     'get_device',
