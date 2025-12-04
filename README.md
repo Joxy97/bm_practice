@@ -134,6 +134,11 @@ python main.py --mode generate --config configs/config.yaml
 python main.py --mode train --config configs/config.yaml --dataset path/to/data.csv
 ```
 
+**Test model only** (test a trained checkpoint):
+```bash
+python main.py --mode test --config configs/config.yaml --checkpoint path/to/model.pt --dataset path/to/test_data.csv
+```
+
 ### Managing Experiments
 
 **List all runs:**
@@ -257,6 +262,33 @@ device:
   # or "cpu" to force CPU
 ```
 
+## Testing Features
+
+### Comprehensive Test Metrics
+The testing stage provides detailed evaluation metrics:
+
+- **Test Loss**: Average negative log-likelihood with standard deviation
+- **Parameter MAE**: Mean absolute error vs true model (when available)
+  - Overall parameter MAE
+  - Linear bias MAE
+  - Quadratic weight MAE
+
+### Test Results Logging
+All test results are automatically saved to `{run_dir}/logs/test_results.json` including:
+- Test metrics
+- Model information (nodes, edges, hidden units)
+- Training configuration
+- Timestamp
+
+### Test Mode
+Test pre-trained models on new data:
+```bash
+python main.py --mode test \
+  --checkpoint outputs/bm_toy_dataset_20251204_103752/checkpoints/best_model.pt \
+  --dataset path/to/new_data.csv \
+  --config configs/config.yaml
+```
+
 ## Output Files
 
 Each run creates a timestamped directory:
@@ -270,6 +302,8 @@ outputs/bm_toy_dataset_20251204_103752/
 │   └── final_model.pt              # Final trained model
 ├── checkpoints/
 │   └── best_model.pt               # Best validation loss
+├── logs/
+│   └── test_results.json           # Comprehensive test results
 └── plots/
     ├── true_model_parameters.png
     ├── learned_model_parameters.png

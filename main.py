@@ -79,13 +79,14 @@ def generate_data(config: dict):
     print(f"  Samples: {len(df)}")
 
 
-def train_model(config: dict, dataset_path: str = None):
+def train_model(config: dict, dataset_path: str = None, true_model=None):
     """
     Train a Boltzmann Machine.
 
     Args:
         config: Configuration dictionary
         dataset_path: Path to dataset CSV (optional, will be inferred from config)
+        true_model: Optional true model for parameter comparison in testing
     """
     print("\n" + "="*70)
     print("STEP 2: MODEL TRAINING")
@@ -170,17 +171,33 @@ def train_model(config: dict, dataset_path: str = None):
     # Train
     trainer.train(train_loader, val_loader, verbose=True)
 
-    # Test
-    test_metrics = trainer.test(test_loader)
-    print(f"\nTest Results:")
-    print(f"  Test Loss: {test_metrics['test_loss']:.4f}")
+    # Test (with true model if provided for parameter comparison)
+    test_metrics = trainer.test(test_loader, true_model=true_model)
+
+    # Print test results
+    print(f"\n{'='*70}")
+    print("TEST RESULTS")
+    print(f"{'='*70}")
+    print(f"Test Loss:     {test_metrics['test_loss']:.4f} +/- {test_metrics['test_loss_std']:.4f}")
+    if 'parameter_mae' in test_metrics:
+        print(f"\nParameter Comparison (vs True Model):")
+        print(f"  Overall MAE:    {test_metrics['parameter_mae']:.4f}")
+        print(f"  Linear MAE:     {test_metrics['linear_mae']:.4f}")
+        print(f"  Quadratic MAE:  {test_metrics['quadratic_mae']:.4f}")
+    print(f"{'='*70}\n")
+
+    # Save test results to file
+    log_dir = config.get('paths', {}).get('log_dir', 'outputs/logs')
+    test_results_path = os.path.join(log_dir, 'test_results.json')
+    trainer.save_test_results(test_metrics, test_results_path)
+    print(f"[OK] Test results saved to: {test_results_path}")
 
     # Save final model
     model_dir = config.get('paths', {}).get('model_dir', 'saved_models')
     os.makedirs(model_dir, exist_ok=True)
     final_model_path = os.path.join(model_dir, 'final_model.pt')
     trainer.save_checkpoint(final_model_path)
-    print(f"\n[OK] Final model saved to: {final_model_path}")
+    print(f"[OK] Final model saved to: {final_model_path}")
 
     # Visualizations
     plot_dir = config.get('logging', {}).get('plot_dir', 'plots')
@@ -202,6 +219,96 @@ def train_model(config: dict, dataset_path: str = None):
     print(f"\n[OK] Model training complete!")
 
     return learned_model, trainer
+
+
+def test_model(config: dict, checkpoint_path: str, dataset_path: str = None):
+    """
+    Test a trained model on a dataset.
+
+    Args:
+        config: Configuration dictionary
+        checkpoint_path: Path to model checkpoint
+        dataset_path: Path to test dataset (optional)
+    """
+    print("\n" + "="*70)
+    print("MODEL TESTING")
+    print("="*70)
+
+    # Initialize device
+    device = get_device(config)
+    set_device_seeds(config['seed'], device)
+
+    # Determine dataset path
+    if dataset_path is None:
+        data_dir = config.get('paths', {}).get('data_dir', 'outputs/data')
+        dataset_name = config['data']['dataset_name']
+        dataset_path = os.path.join(data_dir, f"{dataset_name}.csv")
+
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(f"Dataset not found: {dataset_path}")
+
+    print(f"\nDataset: {dataset_path}")
+
+    # Create dataloader (use all data as test set for this mode)
+    from models import BoltzmannMachineDataset
+    from torch.utils.data import DataLoader
+
+    test_dataset = BoltzmannMachineDataset(dataset_path)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=config['training']['batch_size'],
+        shuffle=False
+    )
+
+    print(f"Test samples: {len(test_dataset)}")
+
+    # Load model topology from config
+    learned_config = config['learned_model']
+    if learned_config['architecture'] == 'fully-connected':
+        nodes, edges, hidden_nodes = create_fully_connected_topology(
+            learned_config['n_visible'],
+            learned_config['n_hidden']
+        )
+    else:
+        nodes, edges, hidden_nodes = create_restricted_topology(
+            learned_config['n_visible'],
+            learned_config['n_hidden'],
+            learned_config['connectivity'],
+            config['seed']
+        )
+
+    # Initialize model
+    linear, quadratic = generate_random_parameters(nodes, edges, seed=config['seed'])
+    model = GRBM(
+        nodes=nodes,
+        edges=edges,
+        hidden_nodes=hidden_nodes if learned_config['n_hidden'] > 0 else None,
+        linear=linear,
+        quadratic=quadratic
+    )
+
+    # Load checkpoint
+    print(f"\nLoading checkpoint: {checkpoint_path}")
+    sampler = SimulatedAnnealingSampler()
+    trainer = BoltzmannMachineTrainer(model, config, device, sampler)
+    trainer.load_checkpoint(checkpoint_path)
+    print("[OK] Checkpoint loaded")
+
+    # Test
+    test_metrics = trainer.test(test_loader)
+
+    # Print results
+    print(f"\n{'='*70}")
+    print("TEST RESULTS")
+    print(f"{'='*70}")
+    print(f"Test Loss:     {test_metrics['test_loss']:.4f} +/- {test_metrics['test_loss_std']:.4f}")
+    print(f"{'='*70}\n")
+
+    # Save results
+    log_dir = config.get('paths', {}).get('log_dir', 'outputs/logs')
+    test_results_path = os.path.join(log_dir, 'test_results.json')
+    trainer.save_test_results(test_metrics, test_results_path)
+    print(f"[OK] Test results saved to: {test_results_path}")
 
 
 def compare_models(config: dict, learned_model: GRBM):
@@ -240,9 +347,9 @@ def main():
     parser.add_argument(
         '--mode',
         type=str,
-        choices=['generate', 'train', 'full'],
+        choices=['generate', 'train', 'test', 'full'],
         default='full',
-        help='Pipeline mode: generate data, train model, or run full pipeline'
+        help='Pipeline mode: generate data, train model, test model, or run full pipeline'
     )
     parser.add_argument(
         '--config',
@@ -254,7 +361,13 @@ def main():
         '--dataset',
         type=str,
         default=None,
-        help='Path to dataset (for train mode only)'
+        help='Path to dataset (for train/test modes)'
+    )
+    parser.add_argument(
+        '--checkpoint',
+        type=str,
+        default=None,
+        help='Path to model checkpoint (for test mode)'
     )
 
     args = parser.parse_args()
@@ -285,10 +398,22 @@ def main():
             # Only train model (requires existing dataset)
             learned_model, trainer = train_model(config, args.dataset)
 
+        elif args.mode == 'test':
+            # Test mode: load checkpoint and test on dataset
+            test_model(config, args.checkpoint, args.dataset)
+
         elif args.mode == 'full':
             # Full pipeline: generate + train + compare
+            # Generate data and get true model for comparison
             generate_data(config)
-            learned_model, trainer = train_model(config)
+
+            # Get true model for parameter comparison in testing
+            set_seeds(config['seed'])
+            data_gen = DataGenerator(config)
+            true_model = data_gen.get_true_model()
+
+            # Train with true model for enhanced testing
+            learned_model, trainer = train_model(config, true_model=true_model)
             compare_models(config, learned_model)
 
         print("\n" + "="*70)

@@ -326,15 +326,21 @@ class BoltzmannMachineTrainer:
 
         return metrics
 
-    def test(self, test_loader: DataLoader) -> Dict[str, float]:
+    def test(self, test_loader: DataLoader, true_model=None) -> Dict[str, float]:
         """
-        Test the model.
+        Test the model with comprehensive metrics.
 
         Args:
             test_loader: Test data loader
+            true_model: Optional true model for parameter comparison
 
         Returns:
-            Dictionary with test metrics
+            Dictionary with test metrics including:
+            - test_loss: Average negative log-likelihood
+            - test_loss_std: Standard deviation of test loss
+            - parameter_mae: Mean absolute error of parameters (if true_model provided)
+            - linear_mae: MAE of linear biases (if true_model provided)
+            - quadratic_mae: MAE of quadratic weights (if true_model provided)
         """
         self.model.eval()
 
@@ -351,10 +357,65 @@ class BoltzmannMachineTrainer:
                 test_losses.append(loss.item())
 
         metrics = {
-            'test_loss': np.mean(test_losses)
+            'test_loss': np.mean(test_losses),
+            'test_loss_std': np.std(test_losses)
         }
 
+        # Compute parameter comparison metrics if true model provided
+        if true_model is not None:
+            with torch.no_grad():
+                # Linear parameter MAE
+                linear_mae = torch.abs(
+                    self.model.linear - true_model.linear.to(self.device)
+                ).mean().item()
+
+                # Quadratic parameter MAE
+                quadratic_mae = torch.abs(
+                    self.model.quadratic - true_model.quadratic.to(self.device)
+                ).mean().item()
+
+                # Overall parameter MAE
+                parameter_mae = (linear_mae + quadratic_mae) / 2
+
+                metrics.update({
+                    'parameter_mae': parameter_mae,
+                    'linear_mae': linear_mae,
+                    'quadratic_mae': quadratic_mae
+                })
+
         return metrics
+
+    def save_test_results(self, test_metrics: Dict[str, float], filepath: str):
+        """
+        Save test results to a JSON file.
+
+        Args:
+            test_metrics: Dictionary of test metrics
+            filepath: Path to save JSON file
+        """
+        import json
+        from datetime import datetime
+
+        # Add timestamp
+        results = {
+            'timestamp': datetime.now().isoformat(),
+            'metrics': test_metrics,
+            'model_info': {
+                'n_nodes': len(self.model.nodes),
+                'n_edges': len(self.model.edges),
+                'n_hidden': len(self.model.hidden_nodes) if self.model.hidden_nodes else 0
+            },
+            'training_config': {
+                'n_epochs': self.current_epoch + 1,
+                'learning_rate': self.training_config['learning_rate'],
+                'optimizer': self.training_config['optimizer'],
+                'batch_size': self.training_config['batch_size']
+            }
+        }
+
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, 'w') as f:
+            json.dump(results, f, indent=2)
 
     def check_early_stopping(self, metrics: Dict[str, float]) -> bool:
         """
