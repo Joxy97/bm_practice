@@ -9,7 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
-from typing import Union
+from typing import Union, List
+from utils.benchmark_metrics import get_metric_display_name
 
 
 def plot_benchmark_results(
@@ -21,7 +22,7 @@ def plot_benchmark_results(
     Create comprehensive visualizations of benchmark results.
 
     Args:
-        df_results: DataFrame with columns ['n_variables', 'sampler', 'kl_divergence', ...]
+        df_results: DataFrame with columns ['n_variables', 'sampler', <metrics>, ...]
         save_dir: Directory to save plots
         show: Whether to display plots
     """
@@ -33,58 +34,119 @@ def plot_benchmark_results(
     plt.rcParams['figure.figsize'] = (12, 8)
     plt.rcParams['font.size'] = 11
 
-    # 1. Line plot: KL divergence vs number of variables
-    _plot_kl_vs_variables(df_results, save_dir / 'kl_vs_variables.png', show)
+    # Detect available metrics
+    metric_columns = [col for col in df_results.columns
+                     if col not in ['n_variables', 'sampler', 'n_samples',
+                                   'n_unique_states_true', 'n_unique_states_empirical']]
 
-    # 2. Heatmap: KL divergence across samplers and problem sizes
-    _plot_kl_heatmap(df_results, save_dir / 'kl_heatmap.png', show)
+    print(f"\nDetected metrics: {metric_columns}")
 
-    # 3. Bar plot: Average KL divergence per sampler
-    _plot_average_kl_per_sampler(df_results, save_dir / 'average_kl_per_sampler.png', show)
+    # Create plots for each metric
+    plot_files = []
+    for metric in metric_columns:
+        # 1. Average metric per sampler
+        plot_file = save_dir / f'average_{metric}_per_sampler.png'
+        _plot_average_metric_per_sampler(df_results, metric, plot_file, show)
+        plot_files.append(plot_file)
 
-    # 4. Box plot: KL divergence distribution per sampler
-    _plot_kl_distribution(df_results, save_dir / 'kl_distribution.png', show)
-
-    # 5. Log-scale comparison
-    _plot_kl_vs_variables_logscale(df_results, save_dir / 'kl_vs_variables_logscale.png', show)
-
-    # 6. Relative performance comparison
-    _plot_relative_performance(df_results, save_dir / 'relative_performance.png', show)
+    # 2. Combined metrics comparison plot
+    if len(metric_columns) > 0:
+        combined_file = save_dir / 'combined_metrics_comparison.png'
+        _plot_combined_metrics(df_results, metric_columns, combined_file, show)
+        plot_files.append(combined_file)
 
     print(f"\nVisualization complete! Saved plots:")
-    print(f"  - {save_dir / 'kl_vs_variables.png'}")
-    print(f"  - {save_dir / 'kl_heatmap.png'}")
-    print(f"  - {save_dir / 'average_kl_per_sampler.png'}")
-    print(f"  - {save_dir / 'kl_distribution.png'}")
-    print(f"  - {save_dir / 'kl_vs_variables_logscale.png'}")
-    print(f"  - {save_dir / 'relative_performance.png'}")
+    for plot_file in plot_files:
+        print(f"  - {plot_file}")
 
 
-def _plot_kl_vs_variables(df: pd.DataFrame, save_path: Path, show: bool):
-    """Plot KL divergence vs number of variables for each sampler."""
-    plt.figure(figsize=(12, 7))
+def _plot_average_metric_per_sampler(
+    df: pd.DataFrame,
+    metric: str,
+    save_path: Path,
+    show: bool
+):
+    """Bar plot of average metric value per sampler."""
+    # Calculate average metric per sampler
+    avg_metric = df.groupby('sampler')[metric].mean().sort_values()
 
-    # Get unique samplers and assign colors
+    plt.figure(figsize=(10, 6))
+    colors = sns.color_palette('viridis', n_colors=len(avg_metric))
+
+    bars = plt.barh(range(len(avg_metric)), avg_metric.values, color=colors)
+    plt.yticks(range(len(avg_metric)), avg_metric.index)
+
+    # Add value labels on bars
+    for i, (bar, val) in enumerate(zip(bars, avg_metric.values)):
+        plt.text(val, i, f' {val:.4f}', va='center', fontsize=10, fontweight='bold')
+
+    metric_display = get_metric_display_name(metric)
+    plt.xlabel(f'Average {metric_display}', fontsize=13, fontweight='bold')
+    plt.ylabel('Sampler', fontsize=13, fontweight='bold')
+    plt.title(f'Average Sampler Performance: {metric_display} (Lower is Better)',
+              fontsize=15, fontweight='bold')
+    plt.grid(True, alpha=0.3, axis='x')
+    plt.tight_layout()
+
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    if show:
+        plt.show()
+    plt.close()
+
+
+def _plot_combined_metrics(
+    df: pd.DataFrame,
+    metrics: List[str],
+    save_path: Path,
+    show: bool
+):
+    """
+    Create a combined visualization showing all metrics side-by-side.
+
+    Args:
+        df: DataFrame with benchmark results
+        metrics: List of metric column names
+        save_path: Path to save the plot
+        show: Whether to display the plot
+    """
+    n_metrics = len(metrics)
+    fig, axes = plt.subplots(1, n_metrics, figsize=(6 * n_metrics, 6))
+
+    if n_metrics == 1:
+        axes = [axes]
+
+    # Get unique samplers and colors
     samplers = df['sampler'].unique()
     colors = sns.color_palette('tab10', n_colors=len(samplers))
+    color_map = dict(zip(samplers, colors))
 
-    for sampler, color in zip(samplers, colors):
-        data = df[df['sampler'] == sampler].sort_values('n_variables')
-        plt.plot(
-            data['n_variables'],
-            data['kl_divergence'],
-            marker='o',
-            linewidth=2,
-            markersize=8,
-            label=sampler,
-            color=color
+    for idx, metric in enumerate(metrics):
+        ax = axes[idx]
+
+        # Calculate average metric per sampler
+        avg_metric = df.groupby('sampler')[metric].mean().sort_values()
+
+        # Create bar plot
+        bars = ax.barh(
+            range(len(avg_metric)),
+            avg_metric.values,
+            color=[color_map[sampler] for sampler in avg_metric.index]
         )
 
-    plt.xlabel('Number of Variables', fontsize=13, fontweight='bold')
-    plt.ylabel('KL Divergence', fontsize=13, fontweight='bold')
-    plt.title('Sampler Performance: KL Divergence vs Problem Size', fontsize=15, fontweight='bold')
-    plt.legend(loc='best', frameon=True, shadow=True, fontsize=11)
-    plt.grid(True, alpha=0.3)
+        ax.set_yticks(range(len(avg_metric)))
+        ax.set_yticklabels(avg_metric.index)
+
+        # Add value labels
+        for i, (bar, val) in enumerate(zip(bars, avg_metric.values)):
+            ax.text(val, i, f' {val:.4f}', va='center', fontsize=9, fontweight='bold')
+
+        metric_display = get_metric_display_name(metric)
+        ax.set_xlabel(metric_display, fontsize=11, fontweight='bold')
+        ax.set_title(f'{metric_display}', fontsize=12, fontweight='bold')
+        ax.grid(True, alpha=0.3, axis='x')
+
+    fig.suptitle('Sampler Performance Comparison Across All Metrics (Lower is Better)',
+                 fontsize=14, fontweight='bold', y=1.02)
     plt.tight_layout()
 
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -272,34 +334,47 @@ def _plot_relative_performance(df: pd.DataFrame, save_path: Path, show: bool):
 
 def create_summary_table(df: pd.DataFrame, save_path: Path):
     """
-    Create a summary table of benchmark results.
+    Create a summary table of benchmark results with all metrics.
 
     Args:
         df: DataFrame with benchmark results
         save_path: Path to save summary table (CSV)
     """
+    # Detect metric columns
+    metric_columns = [col for col in df.columns
+                     if col not in ['n_variables', 'sampler', 'n_samples',
+                                   'n_unique_states_true', 'n_unique_states_empirical']]
+
     summary_data = []
 
     for sampler in df['sampler'].unique():
         sampler_data = df[df['sampler'] == sampler]
 
-        summary_data.append({
-            'Sampler': sampler,
-            'Mean KL Divergence': sampler_data['kl_divergence'].mean(),
-            'Std KL Divergence': sampler_data['kl_divergence'].std(),
-            'Min KL Divergence': sampler_data['kl_divergence'].min(),
-            'Max KL Divergence': sampler_data['kl_divergence'].max(),
-            'Median KL Divergence': sampler_data['kl_divergence'].median()
-        })
+        row = {'Sampler': sampler}
 
-    summary_df = pd.DataFrame(summary_data).sort_values('Mean KL Divergence')
+        # Add statistics for each metric
+        for metric in metric_columns:
+            metric_display = get_metric_display_name(metric)
+            row[f'{metric_display} (Mean)'] = sampler_data[metric].mean()
+            row[f'{metric_display} (Std)'] = sampler_data[metric].std()
+
+        summary_data.append(row)
+
+    summary_df = pd.DataFrame(summary_data)
+
+    # Sort by first metric (usually KL divergence)
+    if len(metric_columns) > 0:
+        first_metric_col = f'{get_metric_display_name(metric_columns[0])} (Mean)'
+        if first_metric_col in summary_df.columns:
+            summary_df = summary_df.sort_values(first_metric_col)
+
     summary_df.to_csv(save_path, index=False)
 
     print(f"\nSummary table saved to: {save_path}")
-    print("\n" + "="*80)
+    print("\n" + "="*100)
     print("BENCHMARK SUMMARY")
-    print("="*80)
+    print("="*100)
     print(summary_df.to_string(index=False))
-    print("="*80)
+    print("="*100)
 
     return summary_df

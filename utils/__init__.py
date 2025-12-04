@@ -14,6 +14,7 @@ from .run_manager import (
     get_latest_run,
     print_run_summary
 )
+from .benchmark_metrics import BenchmarkMetrics, get_metric_display_name, get_metric_direction
 
 __all__ = [
     'create_topology',
@@ -39,5 +40,8 @@ __all__ = [
     'update_config_paths',
     'list_runs',
     'get_latest_run',
-    'print_run_summary'
+    'print_run_summary',
+    'BenchmarkMetrics',
+    'get_metric_display_name',
+    'get_metric_direction'
 ]

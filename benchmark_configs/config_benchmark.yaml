@@ -46,7 +46,7 @@ benchmark:
   # === Sampling Configuration ===
   # Number of samples to generate per benchmark run.
   # Higher values give better empirical distribution estimates but take longer.
-  n_samples: 1000
+  n_samples: 100
 
   # === True Model Parameters ===
   # Configuration for the random Boltzmann Machines used in benchmarking.
@@ -55,6 +55,21 @@ benchmark:
   connectivity: "dense"         # Always use dense connectivity
   linear_bias_scale: 1.0        # Scale for random linear biases
   quadratic_weight_scale: 1.5   # Scale for random quadratic weights
+
+  # === Metrics Configuration ===
+  # Configure which metrics to compute during benchmarking
+  metrics:
+    # List of enabled metrics
+    enabled:
+      - "kl_divergence"           # Forward KL: D_KL(p_true || p_empirical)
+      - "reverse_kl_divergence"   # Reverse KL: D_KL(p_empirical || p_true)
+      - "total_variation"         # Total Variation Distance
+      - "mmd"                     # Maximum Mean Discrepancy
+      - "moment_matching"         # First and second moment matching error
+
+    # MMD kernel configuration
+    mmd_kernel: "rbf_hamming"     # "rbf_hamming" or "linear_hamming"
+    mmd_kernel_bandwidth: 1.0     # Bandwidth for RBF kernel
 
   # === Sampler-Specific Parameters ===
   # Default parameters used for all samplers during benchmarking.

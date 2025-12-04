@@ -17,6 +17,7 @@ from tqdm import tqdm
 from utils.topology import create_topology
 from utils.parameters import generate_random_parameters
 from utils.sampler_factory import create_sampler
+from utils.benchmark_metrics import BenchmarkMetrics
 from dwave.plugins.torch.models import GraphRestrictedBoltzmannMachine as GRBM
 
 
@@ -45,6 +46,9 @@ class SamplerBenchmark:
             self.device = torch.device('cuda')
         else:
             self.device = torch.device('cpu')
+
+        # Initialize metrics computer
+        self.metrics_computer = BenchmarkMetrics(config)
 
         self.results = []
 
@@ -196,30 +200,29 @@ class SamplerBenchmark:
 
         return prob_dict
 
-    def _compute_kl_divergence(
+    def _compute_metrics(
         self,
         p_true: Dict[Tuple, float],
-        p_empirical: Dict[Tuple, float]
-    ) -> float:
+        p_empirical: Dict[Tuple, float],
+        samples: np.ndarray
+    ) -> Dict[str, float]:
         """
-        Compute KL divergence: D_KL(p || p-hat) = sum p(x) log(p(x) / p-hat(x))
+        Compute all enabled benchmark metrics.
 
         Args:
             p_true: True distribution p(x)
             p_empirical: Empirical distribution p-hat(x)
+            samples: Empirical samples array
 
         Returns:
-            KL divergence value
+            Dictionary of metric names to values
         """
-        kl_div = 0.0
-
-        # Sum over all states in the support of p_true
-        for state, p_x in p_true.items():
-            if p_x > 1e-15:  # Avoid log(0)
-                p_hat_x = p_empirical.get(state, 1e-15)  # Smoothing for unseen states
-                kl_div += p_x * np.log(p_x / p_hat_x)
-
-        return kl_div
+        return self.metrics_computer.compute_all_metrics(
+            p_true=p_true,
+            p_empirical=p_empirical,
+            samples=samples,
+            true_samples=None  # Will be generated internally if needed
+        )
 
     def _sample_from_model(
         self,
@@ -314,21 +317,26 @@ class SamplerBenchmark:
         print("Computing empirical distribution...")
         p_empirical = self._compute_empirical_distribution(samples)
 
-        # Compute KL divergence
-        print("Computing KL divergence...")
-        kl_div = self._compute_kl_divergence(p_true, p_empirical)
+        # Compute all metrics
+        print("Computing benchmark metrics...")
+        metrics = self._compute_metrics(p_true, p_empirical, samples)
 
-        print(f"KL Divergence: {kl_div:.6f}")
+        # Print metrics
+        for metric_name, metric_value in metrics.items():
+            print(f"  {metric_name}: {metric_value:.6f}")
 
+        # Build result dictionary
         result = {
             'n_variables': n_variables,
             'sampler_type': sampler_type,
             'n_samples': n_samples,
-            'kl_divergence': kl_div,
             'n_unique_states_true': len(p_true),
             'n_unique_states_empirical': len(p_empirical),
             'model_info': model_info
         }
+
+        # Add all metrics to result
+        result.update(metrics)
 
         return result
 
@@ -372,17 +380,26 @@ class SamplerBenchmark:
                     continue
 
         # Convert to DataFrame
-        df_results = pd.DataFrame([
-            {
-                'n_variables': r['n_variables'],
-                'sampler': r['sampler_type'],
-                'kl_divergence': r['kl_divergence'],
-                'n_samples': r['n_samples'],
-                'n_unique_states_true': r['n_unique_states_true'],
-                'n_unique_states_empirical': r['n_unique_states_empirical']
-            }
-            for r in results
-        ])
+        # Extract all metric columns dynamically
+        if len(results) == 0:
+            df_results = pd.DataFrame()
+        else:
+            # Get all metric names from first result
+            metric_names = [k for k in results[0].keys()
+                          if k not in ['n_variables', 'sampler_type', 'n_samples',
+                                       'n_unique_states_true', 'n_unique_states_empirical', 'model_info']]
+
+            df_results = pd.DataFrame([
+                {
+                    'n_variables': r['n_variables'],
+                    'sampler': r['sampler_type'],
+                    'n_samples': r['n_samples'],
+                    'n_unique_states_true': r['n_unique_states_true'],
+                    'n_unique_states_empirical': r['n_unique_states_empirical'],
+                    **{metric: r.get(metric, np.nan) for metric in metric_names}
+                }
+                for r in results
+            ])
 
         self.results = results
 
