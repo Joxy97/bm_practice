@@ -26,8 +26,9 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed usage instructions.
 ## Features
 
 ### Architecture Support
-- **FVBM (Fully Visible BM)**: Visible nodes only, supports dense or sparse connectivity
-- **RBM (Restricted BM)**: Bipartite structure with hidden units, supports dense or sparse connectivity
+- **FVBM (Fully Visible BM)**: Visible nodes only with v-v edges, supports dense or sparse connectivity
+- **RBM (Restricted BM)**: Bipartite structure with only v-h edges, supports dense or sparse connectivity
+- **SBM (Standard BM)**: General structure with all edge types (v-v, v-h, h-h), supports dense or sparse connectivity
 - **Dense Connectivity**: All allowed edges exist
 - **Sparse Connectivity**: Random subset of edges with configurable density
 
@@ -374,6 +375,7 @@ true_model:
 **Model Types:**
 - **`model_type: "fvbm"`** - Fully Visible Boltzmann Machine (requires `n_hidden = 0`)
 - **`model_type: "rbm"`** - Restricted Boltzmann Machine (requires `n_hidden > 0`)
+- **`model_type: "sbm"`** - Standard/General Boltzmann Machine (requires `n_hidden > 0`)
 
 **Connectivity:**
 - **`connectivity: "dense"`** - All allowed edges exist
@@ -441,6 +443,32 @@ true_model:
   model_type: "rbm"
   connectivity: "sparse"
   connectivity_density: 0.5
+```
+
+### Example 5: Dense Standard BM
+Complete general Boltzmann Machine with all edge types (v-v, v-h, h-h).
+
+```yaml
+true_model:
+  n_visible: 6
+  n_hidden: 4
+  model_type: "sbm"
+  connectivity: "dense"
+
+training:
+  hidden_kind: "exact-disc"  # Exact marginalization over hidden units
+```
+
+### Example 6: Sparse Standard BM
+Sparse general BM with 40% of all possible edges.
+
+```yaml
+true_model:
+  n_visible: 15
+  n_hidden: 8
+  model_type: "sbm"
+  connectivity: "sparse"
+  connectivity_density: 0.4
 ```
 
 ## Training Improvements

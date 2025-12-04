@@ -4,7 +4,7 @@
 
 This document explains the clean, explicit naming scheme for Boltzmann Machine architectures introduced in Phase 1 refactoring.
 
-## The New Naming Scheme
+## The Naming Scheme
 
 The configuration uses three independent, explicit dimensions:
 
@@ -15,12 +15,17 @@ Defines the **structure** of the Boltzmann Machine:
 - **`"fvbm"`** - Fully Visible Boltzmann Machine
   - Only visible nodes (no hidden layer)
   - Requires `n_hidden = 0`
-  - Edges exist only between visible nodes
+  - Edges: only v-v (visible-visible)
 
 - **`"rbm"`** - Restricted Boltzmann Machine
   - Bipartite structure with visible and hidden layers
   - Requires `n_hidden > 0`
-  - Edges exist only between visible and hidden nodes (no intra-layer connections)
+  - Edges: only v-h (visible-hidden), no intra-layer connections
+
+- **`"sbm"`** - Standard/General Boltzmann Machine
+  - Full general structure with both visible and hidden layers
+  - Requires `n_hidden > 0`
+  - Edges: all types allowed - v-v, v-h, and h-h (hidden-hidden)
 
 ### 2. Connectivity Pattern (`connectivity`)
 
@@ -54,12 +59,14 @@ true_model:
 
 ## Model Type vs Connectivity Matrix
 
-| Model Type | Connectivity | n_hidden | Result |
-|------------|--------------|----------|--------|
-| `fvbm` | `dense` | 0 | Complete visible graph |
-| `fvbm` | `sparse` | 0 | Sparse visible graph |
-| `rbm` | `dense` | > 0 | Complete bipartite graph (standard RBM) |
-| `rbm` | `sparse` | > 0 | Sparse bipartite graph |
+| Model Type | Connectivity | n_hidden | Edge Types | Result |
+|------------|--------------|----------|------------|--------|
+| `fvbm` | `dense` | 0 | v-v | Complete visible graph |
+| `fvbm` | `sparse` | 0 | v-v | Sparse visible graph |
+| `rbm` | `dense` | > 0 | v-h | Complete bipartite graph |
+| `rbm` | `sparse` | > 0 | v-h | Sparse bipartite graph |
+| `sbm` | `dense` | > 0 | v-v, v-h, h-h | Complete general graph |
+| `sbm` | `sparse` | > 0 | v-v, v-h, h-h | Sparse general graph |
 
 ## Why This Naming?
 
@@ -95,10 +102,12 @@ The `create_topology()` function enforces consistency:
 # VALID configurations
 create_topology(n_visible=10, n_hidden=0, model_type="fvbm", ...)
 create_topology(n_visible=10, n_hidden=5, model_type="rbm", ...)
+create_topology(n_visible=10, n_hidden=5, model_type="sbm", ...)
 
 # INVALID configurations (raises ValueError)
 create_topology(n_visible=10, n_hidden=5, model_type="fvbm", ...)  # FVBM needs n_hidden=0
 create_topology(n_visible=10, n_hidden=0, model_type="rbm", ...)   # RBM needs n_hidden>0
+create_topology(n_visible=10, n_hidden=0, model_type="sbm", ...)   # SBM needs n_hidden>0
 ```
 
 ## Complete Examples
@@ -157,6 +166,39 @@ true_model:
 
 **Result**: Random subset of ~50% of 200 possible bipartite edges.
 
+### Example 5: Dense SBM
+Complete general BM with all edge types (6 visible, 4 hidden = 51 edges total).
+
+```yaml
+true_model:
+  n_visible: 6
+  n_hidden: 4
+  model_type: "sbm"
+  connectivity: "dense"
+```
+
+**Result**:
+- 15 v-v edges (6 choose 2)
+- 24 v-h edges (6 × 4)
+- 6 h-h edges (4 choose 2)
+- Total: 45 edges
+
+### Example 6: Sparse SBM
+Sparse general BM with 40% of all possible edges.
+
+```yaml
+true_model:
+  n_visible: 15
+  n_hidden: 8
+  model_type: "sbm"
+  connectivity: "sparse"
+  connectivity_density: 0.4
+```
+
+**Result**:
+- Possible: 105 v-v + 120 v-h + 28 h-h = 253 total
+- Expected: ~40% × 253 ≈ 101 edges
+
 ## Code Implementation
 
 See [utils/topology.py](../utils/topology.py) for the implementation:
@@ -177,9 +219,11 @@ create_restricted_topology(n_visible, n_hidden, connectivity, seed)
 
 These internally call `create_topology()` with appropriate parameters.
 
-## Future Extensions: Standard Boltzmann Machine (SBM)
+## Standard Boltzmann Machine (SBM) - Phase 2 Implementation
 
-Currently not implemented. Would add:
+**Status**: ✅ Implemented in Phase 2
+
+The SBM model type is now fully supported:
 
 ```yaml
 model_type: "sbm"  # Standard/General Boltzmann Machine
@@ -189,9 +233,9 @@ model_type: "sbm"  # Standard/General Boltzmann Machine
 - Has hidden units (`n_hidden > 0`)
 - Allows ALL edge types: v-v, v-h, AND h-h
 - Most general BM structure
-- Requires updated sampling for h-h connections
+- Works with both dense and sparse connectivity
 
-**Status**: Planned for Phase 2
+**Note**: While topology creation fully supports SBM, ensure your sampler and training configuration can handle the full general BM structure with h-h connections.
 
 ## Migration from Old Scheme
 
@@ -207,7 +251,10 @@ If you have old configs using `architecture`:
 ## Summary
 
 **Three independent dimensions:**
-1. **Model Type** (`model_type`): FVBM vs RBM (structure type)
+1. **Model Type** (`model_type`): FVBM vs RBM vs SBM (structure type)
+   - FVBM: Only v-v edges
+   - RBM: Only v-h edges (bipartite)
+   - SBM: All edge types (v-v, v-h, h-h)
 2. **Connectivity** (`connectivity`): Dense vs Sparse (edge density)
 3. **Connectivity Density** (`connectivity_density`): Sparsity level (0.0-1.0)
 
