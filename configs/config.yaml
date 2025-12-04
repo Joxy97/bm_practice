@@ -1,0 +1,91 @@
+# Boltzmann Machine Pipeline Configuration
+
+# Random seed for reproducibility
+seed: 42
+
+# True Model Configuration (data generation)
+true_model:
+  n_visible: 4
+  n_hidden: 0
+  architecture: "fully-connected"  # "fully-connected" or "restricted"
+  connectivity: 0.7  # Only used if architecture is "restricted"
+
+  # Parameter initialization
+  linear_bias_scale: 1.0
+  quadratic_weight_scale: 1.5
+
+# Data Generation
+data:
+  dataset_name: "bm_dataset_v1"
+  n_samples: 10000
+  num_reads: 5000  # Samples per D-Wave API call
+  prefactor: 1.0
+
+  # Train/Val/Test split
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+
+  # Sampler parameters
+  sampler_params:
+    beta_range: [1.0, 1.0]
+    proposal_acceptance_criteria: "Gibbs"
+
+# Learned Model Configuration
+learned_model:
+  # Should match true model topology
+  n_visible: 4
+  n_hidden: 0
+  architecture: "fully-connected"
+  connectivity: 0.7
+
+  # Initial parameter scale (smaller than true model)
+  init_linear_scale: 0.1
+  init_quadratic_scale: 0.1
+
+# Training Configuration
+training:
+  batch_size: 1000
+  n_epochs: 200
+  learning_rate: 0.01
+  optimizer: "adam"  # "sgd" or "adam"
+
+  # Model sampling during training
+  model_sample_size: 1000
+  prefactor: 1.0
+
+  # Hidden unit handling (only if n_hidden > 0)
+  hidden_kind: null  # "exact-disc", "sampling", or null
+
+  # Early stopping
+  early_stopping:
+    enabled: false                # Enable/disable early stopping
+    patience: 20                 # Number of epochs without improvement before stopping
+    min_delta: 0.0001           # Minimum change to qualify as improvement
+    metric: "val_loss"          # Metric to monitor: "val_loss", "train_loss", "grad_norm"
+    mode: "min"                 # "min" for loss, "max" for accuracy-like metrics
+    restore_best_weights: true  # Restore best model weights after early stopping
+
+  # Checkpointing
+  save_best_model: true
+  checkpoint_dir: "outputs/checkpoints"
+
+# Logging and Visualization
+logging:
+  log_interval: 10  # Log every N epochs
+  save_plots: true
+  plot_dir: "outputs/plots"
+
+  # Metrics to track
+  track_metrics:
+    - "loss"
+    - "grad_norm"
+    - "beta"
+    - "val_loss"
+
+# Paths (relative to bm_pipeline/ directory when running main.py directly,
+#        or relative to project root when using run scripts)
+paths:
+  data_dir: "outputs/data"
+  model_dir: "outputs/models"
+  log_dir: "outputs/logs"

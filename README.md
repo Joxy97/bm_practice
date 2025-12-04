@@ -1,106 +1,302 @@
-# Boltzmann Machine Tutorial: Reverse Engineering a Quadratic Model
+# Boltzmann Machine Training Pipeline
 
-A pedagogical implementation for learning how to build and train Boltzmann Machines using D-Wave's sampling capabilities.
+A modular, production-ready pipeline for training Boltzmann Machines using D-Wave's PyTorch plugin.
 
 ## Overview
 
-This tutorial demonstrates:
+This project provides a complete end-to-end pipeline for:
+- Generating training data from a "true" Boltzmann Machine
+- Training a model to learn the true parameters
+- Evaluating and comparing results
+- Comprehensive visualization
 
-1. **Define TRUE model**: Manually set biases and weights for a 4-variable fully-connected BM
-2. **Sample training data**: Use D-Wave's simulated annealing to sample from the true model
-3. **Train NEW model**: Initialize a random BM and train it on the sampled data
-4. **Compare results**: Visualize how well the learned model recovered the true parameters
+## Quick Start
+
+```bash
+cd bm_pipeline
+python main.py --mode full --config configs/config.yaml
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed usage instructions.
+
+## Features
+
+### Architecture Support
+- **Fully-Connected**: All visible nodes connected (dense graph)
+- **Restricted**: Sparse connectivity with configurable density
+- **RBM**: Bipartite graphs with hidden units
+
+### Training Features
+- **PyTorch Integration**: Full integration with PyTorch optimizers
+- **Data Management**: Automated CSV storage, train/val/test splits, batching
+- **Early Stopping**: Automatic stopping based on validation loss
+- **Checkpointing**: Saves best and final models
+- **Validation**: Proper train/val/test separation
+
+### Visualization
+- Model parameters (biases and weights)
+- Training curves (loss, gradients, temperature)
+- Side-by-side true vs learned comparison
+- Data statistics and correlations
+
+### Code Quality
+- Modular design with clean separation of concerns
+- Configuration-driven (YAML)
+- Reproducible (fixed random seeds)
+- Well-documented
+- Type hints throughout
+
+## Project Structure
+
+```
+bm_pipeline/
+├── configs/
+│   └── config.yaml           # All hyperparameters
+│
+├── models/
+│   ├── data_generator.py     # DataGenerator class
+│   └── dataset.py            # PyTorch Dataset/DataLoader
+│
+├── trainers/
+│   └── bm_trainer.py         # BoltzmannMachineTrainer class
+│
+├── utils/
+│   ├── topology.py           # Graph topology creation
+│   ├── parameters.py         # Parameter generation
+│   ├── visualization.py      # Plotting functions
+│   └── config_loader.py      # Config management
+│
+├── outputs/                  # Generated files (git-ignored)
+│   ├── data/                 # CSV datasets
+│   ├── plots/                # PNG visualizations
+│   ├── models/               # Model checkpoints (.pt)
+│   └── checkpoints/          # Best model checkpoints
+│
+├── main.py                   # Main entry point
+├── run.py                    # Alternative runner
+├── .gitignore                # Excludes outputs
+├── README.md                 # This file
+├── QUICKSTART.md             # Quick start guide
+└── requirements.txt          # Dependencies
+```
 
 ## Installation
 
 ```bash
+# Navigate to project
+cd bm_practice/bm_pipeline
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Running the Tutorial
+Required packages:
+- `numpy`, `pandas`, `torch`, `matplotlib`, `seaborn`, `pyyaml`
+- `dwave-ocean-sdk`, `dwave-pytorch-plugin`, `dimod`
+
+## Usage
+
+### Full Pipeline
 
 ```bash
-python boltzmann_machine_tutorial.py
+python main.py --mode full --config configs/config.yaml
 ```
 
-## What You'll Learn
+Runs:
+1. Data generation from true model
+2. Model training with validation
+3. Testing and comparison
 
-### Boltzmann Machine Basics
+### Individual Steps
 
-A Boltzmann Machine defines an energy function over binary variables:
-
-```
-E(v) = -Σᵢ bᵢvᵢ - Σᵢ<ⱼ Wᵢⱼvᵢvⱼ
-```
-
-Where:
-- `vᵢ ∈ {0,1}` are binary variables
-- `bᵢ` are biases (linear terms)
-- `Wᵢⱼ` are interaction weights (quadratic terms)
-
-### Training Process
-
-The code uses **maximum likelihood estimation** for a fully visible BM:
-
-1. **Data statistics**: Calculate empirical means and correlations from training data
-2. **Model statistics**: Sample from current model to estimate expectations
-3. **Gradient update**: Move parameters to match data statistics
-
-```
-∂L/∂bᵢ = ⟨vᵢ⟩_data - ⟨vᵢ⟩_model
-∂L/∂Wᵢⱼ = ⟨vᵢvⱼ⟩_data - ⟨vᵢvⱼ⟩_model
+**Generate data only:**
+```bash
+python main.py --mode generate --config configs/config.yaml
 ```
 
-### D-Wave Integration
+**Train model only** (requires existing dataset):
+```bash
+python main.py --mode train --config configs/config.yaml
+```
 
-The tutorial uses D-Wave's simulated annealing sampler to:
-- Sample from the true model (generate training data)
-- Sample from the learned model (estimate model statistics during training)
+## Configuration
 
-This is converted to QUBO (Quadratic Unconstrained Binary Optimization) format that D-Wave can process.
+Edit `configs/config.yaml` to customize:
+
+```yaml
+# Model architecture
+true_model:
+  n_visible: 4
+  n_hidden: 0
+  architecture: "fully-connected"
+
+# Data generation
+data:
+  n_samples: 5000
+  train_ratio: 0.7
+  val_ratio: 0.15
+
+# Training
+training:
+  batch_size: 128
+  n_epochs: 100
+  learning_rate: 0.1
+  optimizer: "sgd"
+```
+
+## Examples
+
+### Example 1: Fully Visible BM (Default)
+```yaml
+true_model:
+  n_visible: 4
+  n_hidden: 0
+  architecture: "fully-connected"
+```
+
+### Example 2: Restricted Boltzmann Machine
+```yaml
+true_model:
+  n_visible: 6
+  n_hidden: 3
+  architecture: "fully-connected"  # Creates bipartite graph
+
+training:
+  hidden_kind: "exact-disc"  # Exact marginalization
+```
+
+### Example 3: Large Sparse Network
+```yaml
+true_model:
+  n_visible: 10
+  n_hidden: 0
+  architecture: "restricted"
+  connectivity: 0.3
+```
 
 ## Output Files
 
-The script generates 5 visualizations:
+All outputs are saved in `outputs/`:
 
-1. `true_bm_parameters.png` - The manually defined true model
-2. `training_data_statistics.png` - Analysis of sampled training data
-3. `learned_bm_parameters.png` - The trained model parameters
-4. `training_history.png` - Loss and parameter evolution during training
-5. `true_vs_learned_comparison.png` - Side-by-side comparison of true vs learned
+### Data
+- `outputs/data/bm_dataset_v1.csv` - Generated samples with metadata
 
-## Key Parameters
+### Plots
+- `outputs/plots/true_model_parameters.png`
+- `outputs/plots/learned_model_parameters.png`
+- `outputs/plots/training_history.png`
+- `outputs/plots/model_comparison.png`
 
-You can adjust these in the `main()` function:
+### Models
+- `outputs/models/final_model.pt` - Final epoch
+- `outputs/checkpoints/best_model.pt` - Best validation loss
 
-- `num_training_samples`: Number of samples to generate (default: 500)
-- `learning_rate`: Gradient descent step size (default: 0.05)
-- `num_epochs`: Training iterations (default: 50)
-- `sample_size`: Samples per gradient estimate (default: 200)
+## Key Classes
 
-## Understanding the Code
+### DataGenerator
+```python
+from models import DataGenerator
 
-### BoltzmannMachine Class
+data_gen = DataGenerator(config)
+df = data_gen.generate(save_dir='outputs/data')
+true_model = data_gen.get_true_model()
+```
 
-- `set_parameters()`: Manually define biases and weights
-- `energy()`: Calculate energy of a configuration
-- `to_qubo()`: Convert to D-Wave QUBO format
-- `sample_dwave()`: Sample configurations using simulated annealing
-- `visualize_parameters()`: Plot biases and weights
+### BoltzmannMachineDataset
+```python
+from models import create_dataloaders
 
-### BoltzmannMachineTrainer Class
+train_loader, val_loader, test_loader = create_dataloaders(
+    dataset_path='outputs/data/dataset.csv',
+    batch_size=128,
+    train_ratio=0.7,
+    val_ratio=0.15
+)
+```
 
-- `train()`: Maximum likelihood training loop
-- `plot_training_history()`: Visualize learning progress
+### BoltzmannMachineTrainer
+```python
+from trainers import BoltzmannMachineTrainer
 
-## Pedagogical Notes
+trainer = BoltzmannMachineTrainer(model, config, sampler)
+trainer.train(train_loader, val_loader)
+test_metrics = trainer.test(test_loader)
+history = trainer.get_history()
+```
 
-This implementation prioritizes clarity over efficiency:
+## Advanced Features
 
-- ✓ Explicit parameter setting
-- ✓ Clear visualization at each step
-- ✓ Full control over training process
-- ✓ No hidden abstractions
-- ✓ Comments explain the theory
+### Early Stopping
+```yaml
+training:
+  early_stopping:
+    enabled: true
+    patience: 20
+    min_delta: 0.0001
+```
 
-Perfect for understanding BM fundamentals before moving to production libraries!
+### Custom Sampler Parameters
+```yaml
+data:
+  sampler_params:
+    beta_range: [1.0, 1.0]
+    proposal_acceptance_criteria: "Gibbs"
+```
+
+### Checkpoint Management
+```yaml
+training:
+  save_best_model: true
+  checkpoint_dir: "outputs/checkpoints"
+```
+
+## Development
+
+The codebase follows best practices:
+- Type hints for clarity
+- Docstrings for all classes/functions
+- Modular design for extensibility
+- Configuration-driven for flexibility
+- Git-ignored outputs for clean repository
+
+## Extending the Pipeline
+
+### Add Custom Metrics
+Edit `trainers/bm_trainer.py` to track additional metrics in `history`.
+
+### Custom Visualization
+Add functions to `utils/visualization.py`.
+
+### New Architecture Types
+Extend `utils/topology.py` with new graph generation functions.
+
+## Troubleshooting
+
+**Import errors**: Run from `bm_pipeline/` directory
+```bash
+cd bm_pipeline
+python main.py ...
+```
+
+**D-Wave not found**: Install dependencies
+```bash
+pip install dwave-ocean-sdk dwave-pytorch-plugin
+```
+
+**Out of memory**: Reduce batch size or sample size in `configs/config.yaml`
+
+## License
+
+MIT License
+
+## Citation
+
+If you use this code, please cite:
+```
+Boltzmann Machine Training Pipeline
+https://github.com/yourusername/bm_practice
+```
+
+## Contact
+
+For questions or issues, please open a GitHub issue.
