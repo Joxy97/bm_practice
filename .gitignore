@@ -31,4 +31,6 @@ logs/
 Thumbs.db
 .claude
 
-!docs\project_overview.png
+# Exception: Documentation images
+!docs/project_overview.png
+!docs/architecture_comparison.png
