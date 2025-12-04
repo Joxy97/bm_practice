@@ -11,6 +11,8 @@ This project provides a complete end-to-end pipeline for:
 - Comprehensive visualization and evaluation
 - Full GPU support (when available)
 
+![Project Overview](docs/project_overview.png)
+
 ## Quick Start
 
 ```bash
