@@ -12,8 +12,9 @@ device:
 true_model:
   n_visible: 10
   n_hidden: 0
-  architecture: "fully-connected"  # "fully-connected" or "restricted"
-  connectivity: 0.7  # Only used if architecture is "restricted"
+  model_type: "fvbm"  # "fvbm" (Fully Visible BM) or "rbm" (Restricted BM)
+  connectivity: "dense"  # "dense" or "sparse"
+  connectivity_density: 0.7  # Only used if connectivity is "sparse" (0.0-1.0)
 
   # Parameter initialization
   linear_bias_scale: 1.0
@@ -41,8 +42,9 @@ learned_model:
   # Should match true model topology
   n_visible: 10
   n_hidden: 0
-  architecture: "fully-connected"
-  connectivity: 0.7
+  model_type: "fvbm"  # "fvbm" (Fully Visible BM) or "rbm" (Restricted BM)
+  connectivity: "dense"  # "dense" or "sparse"
+  connectivity_density: 0.7  # Only used if connectivity is "sparse" (0.0-1.0)
 
   # Initial parameter scale (smaller than true model)
   init_linear_scale: 0.1

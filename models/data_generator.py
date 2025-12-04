@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 from dwave.plugins.torch.models import GraphRestrictedBoltzmannMachine as GRBM
 from dwave.samplers import SimulatedAnnealingSampler
 
-from utils.topology import create_fully_connected_topology, create_restricted_topology
+from utils.topology import create_topology
 from utils.parameters import generate_random_parameters
 
 
@@ -48,27 +48,28 @@ class DataGenerator:
 
     def _create_topology(self):
         """Create the graph topology based on config."""
-        architecture = self.true_model_config['architecture']
         n_visible = self.true_model_config['n_visible']
         n_hidden = self.true_model_config['n_hidden']
+        model_type = self.true_model_config['model_type']
+        connectivity = self.true_model_config['connectivity']
+        connectivity_density = self.true_model_config.get('connectivity_density', 0.5)
 
-        if architecture == 'fully-connected':
-            nodes, edges, hidden_nodes = create_fully_connected_topology(
-                n_visible, n_hidden
-            )
-        elif architecture == 'restricted':
-            connectivity = self.true_model_config['connectivity']
-            nodes, edges, hidden_nodes = create_restricted_topology(
-                n_visible, n_hidden, connectivity, self.seed
-            )
-        else:
-            raise ValueError(f"Unknown architecture: {architecture}")
+        nodes, edges, hidden_nodes = create_topology(
+            n_visible=n_visible,
+            n_hidden=n_hidden,
+            model_type=model_type,
+            connectivity=connectivity,
+            connectivity_density=connectivity_density,
+            seed=self.seed
+        )
 
         print(f"Topology created:")
-        print(f"  Architecture: {architecture}")
+        print(f"  Model Type: {model_type.upper()}")
+        print(f"  Connectivity: {connectivity}")
+        if connectivity == "sparse":
+            print(f"  Connectivity Density: {connectivity_density:.1%}")
         print(f"  Nodes: {len(nodes)} ({n_visible} visible, {n_hidden} hidden)")
         print(f"  Edges: {len(edges)}")
-        print(f"  Density: {len(edges) / (len(nodes) * (len(nodes) - 1) / 2):.2%}")
 
         return nodes, edges, hidden_nodes
 

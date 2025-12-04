@@ -19,8 +19,7 @@ from models import DataGenerator, create_dataloaders
 from trainers import BoltzmannMachineTrainer
 from utils import (
     load_config,
-    create_fully_connected_topology,
-    create_restricted_topology,
+    create_topology,
     generate_random_parameters,
     plot_model_parameters,
     plot_training_history,
@@ -121,26 +120,27 @@ def train_model(config: dict, dataset_path: str = None, true_model=None):
 
     # Create learned model topology
     learned_config = config['learned_model']
-    architecture = learned_config['architecture']
+    n_visible = learned_config['n_visible']
+    n_hidden = learned_config['n_hidden']
+    model_type = learned_config['model_type']
+    connectivity = learned_config['connectivity']
+    connectivity_density = learned_config.get('connectivity_density', 0.5)
 
-    if architecture == 'fully-connected':
-        nodes, edges, hidden_nodes = create_fully_connected_topology(
-            learned_config['n_visible'],
-            learned_config['n_hidden']
-        )
-    elif architecture == 'restricted':
-        nodes, edges, hidden_nodes = create_restricted_topology(
-            learned_config['n_visible'],
-            learned_config['n_hidden'],
-            learned_config['connectivity'],
-            config['seed']
-        )
-    else:
-        raise ValueError(f"Unknown architecture: {architecture}")
+    nodes, edges, hidden_nodes = create_topology(
+        n_visible=n_visible,
+        n_hidden=n_hidden,
+        model_type=model_type,
+        connectivity=connectivity,
+        connectivity_density=connectivity_density,
+        seed=config['seed']
+    )
 
     print(f"\nLearned model topology:")
-    print(f"  Architecture: {architecture}")
-    print(f"  Nodes: {len(nodes)} ({learned_config['n_visible']} visible, {learned_config['n_hidden']} hidden)")
+    print(f"  Model Type: {model_type.upper()}")
+    print(f"  Connectivity: {connectivity}")
+    if connectivity == "sparse":
+        print(f"  Connectivity Density: {connectivity_density:.1%}")
+    print(f"  Nodes: {len(nodes)} ({n_visible} visible, {n_hidden} hidden)")
     print(f"  Edges: {len(edges)}")
 
     # Initialize learned model with random parameters
@@ -264,18 +264,14 @@ def test_model(config: dict, checkpoint_path: str, dataset_path: str = None):
 
     # Load model topology from config
     learned_config = config['learned_model']
-    if learned_config['architecture'] == 'fully-connected':
-        nodes, edges, hidden_nodes = create_fully_connected_topology(
-            learned_config['n_visible'],
-            learned_config['n_hidden']
-        )
-    else:
-        nodes, edges, hidden_nodes = create_restricted_topology(
-            learned_config['n_visible'],
-            learned_config['n_hidden'],
-            learned_config['connectivity'],
-            config['seed']
-        )
+    nodes, edges, hidden_nodes = create_topology(
+        n_visible=learned_config['n_visible'],
+        n_hidden=learned_config['n_hidden'],
+        model_type=learned_config['model_type'],
+        connectivity=learned_config['connectivity'],
+        connectivity_density=learned_config.get('connectivity_density', 0.5),
+        seed=config['seed']
+    )
 
     # Initialize model
     linear, quadratic = generate_random_parameters(nodes, edges, seed=config['seed'])

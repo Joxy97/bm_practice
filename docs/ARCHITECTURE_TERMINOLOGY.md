@@ -2,139 +2,213 @@
 
 ## Overview
 
-This document clarifies the potentially confusing terminology around "restricted" in the context of Boltzmann Machines.
+This document explains the clean, explicit naming scheme for Boltzmann Machine architectures introduced in Phase 1 refactoring.
 
-## The Confusion
+## The New Naming Scheme
 
-The term "restricted" appears in two different contexts with different meanings:
+The configuration uses three independent, explicit dimensions:
 
-1. **In ML Literature**: "Restricted Boltzmann Machine (RBM)" refers to a specific architecture
-2. **In This Codebase**: `architecture: "restricted"` refers to sparse connectivity
+### 1. Model Type (`model_type`)
 
-## Architecture Parameter Behavior
+Defines the **structure** of the Boltzmann Machine:
 
-### `architecture: "fully-connected"`
+- **`"fvbm"`** - Fully Visible Boltzmann Machine
+  - Only visible nodes (no hidden layer)
+  - Requires `n_hidden = 0`
+  - Edges exist only between visible nodes
 
-Creates **all possible edges** within the specified structure:
+- **`"rbm"`** - Restricted Boltzmann Machine
+  - Bipartite structure with visible and hidden layers
+  - Requires `n_hidden > 0`
+  - Edges exist only between visible and hidden nodes (no intra-layer connections)
 
-- **When `n_hidden = 0`**:
-  - Creates a **dense visible graph**
-  - All visible nodes connect to each other
-  - Total edges: n_visible × (n_visible - 1) / 2
+### 2. Connectivity Pattern (`connectivity`)
 
-- **When `n_hidden > 0`**:
-  - Creates a **complete bipartite graph** (standard RBM)
-  - All visible nodes connect to all hidden nodes
-  - No connections within visible layer or within hidden layer
-  - Total edges: n_visible × n_hidden
-  - **This IS a "Restricted Boltzmann Machine" in ML terminology**
+Defines the **density** of edges within the allowed structure:
 
-### `architecture: "restricted"`
+- **`"dense"`** - All allowed edges exist
+  - For FVBM: Complete graph among visible nodes
+  - For RBM: Complete bipartite graph
 
-Creates **a random subset of edges** (sparse connectivity):
+- **`"sparse"`** - Random subset of allowed edges
+  - Controlled by `connectivity_density` parameter
+  - Ensures graph connectivity (every node has ≥1 edge)
 
-- **When `n_hidden = 0`**:
-  - Creates a **sparse visible graph**
-  - Only `connectivity` fraction of possible visible-visible edges are included
-  - Example: `connectivity: 0.3` means 30% of possible edges
+### 3. Connectivity Density (`connectivity_density`)
 
-- **When `n_hidden > 0`**:
-  - Creates a **sparse bipartite graph**
-  - Only `connectivity` fraction of possible visible-hidden edges are included
-  - Still maintains bipartite structure (no intra-layer connections)
+Only used when `connectivity = "sparse"`:
+- Range: 0.0 to 1.0
+- Fraction of allowed edges to include
+- Example: `0.3` means 30% of possible edges
 
-## Terminology Mapping
+## Complete Configuration Example
 
-| You Want... | Configuration | ML Term |
-|-------------|---------------|---------|
-| Dense graph (all visible nodes connected) | `n_hidden: 0`<br>`architecture: "fully-connected"` | Fully Visible Boltzmann Machine |
-| Standard RBM (complete bipartite) | `n_hidden: > 0`<br>`architecture: "fully-connected"` | Restricted Boltzmann Machine (RBM) |
-| Sparse visible graph | `n_hidden: 0`<br>`architecture: "restricted"`<br>`connectivity: 0.3` | Sparse Boltzmann Machine |
-| Sparse bipartite graph | `n_hidden: > 0`<br>`architecture: "restricted"`<br>`connectivity: 0.3` | Sparse RBM |
+```yaml
+true_model:
+  n_visible: 10
+  n_hidden: 0
+  model_type: "fvbm"
+  connectivity: "dense"
+  connectivity_density: 0.7  # Ignored for dense
+```
 
-## Why "fully-connected" for RBMs?
+## Model Type vs Connectivity Matrix
 
-This seems counterintuitive at first: why is a "Restricted" Boltzmann Machine created with `architecture: "fully-connected"`?
+| Model Type | Connectivity | n_hidden | Result |
+|------------|--------------|----------|--------|
+| `fvbm` | `dense` | 0 | Complete visible graph |
+| `fvbm` | `sparse` | 0 | Sparse visible graph |
+| `rbm` | `dense` | > 0 | Complete bipartite graph (standard RBM) |
+| `rbm` | `sparse` | > 0 | Sparse bipartite graph |
 
-The answer is that **RBM refers to the restricted structure (bipartite), not restricted connectivity**:
-- "Restricted" in RBM means restrictions on **which types** of connections exist (only between layers)
-- "fully-connected" in our parameter means **all allowed connections** exist (all bipartite edges)
+## Why This Naming?
 
-So `architecture: "fully-connected"` with `n_hidden > 0` creates a complete bipartite graph, which is exactly what a standard RBM is.
+### Problems with Old Scheme
+
+The old scheme used `architecture: "fully-connected"` and `architecture: "restricted"`, which was confusing:
+
+1. **Overloaded "restricted"**:
+   - In ML: "Restricted BM" = bipartite structure (RBM)
+   - In old code: "restricted" = sparse connectivity
+   - These are DIFFERENT concepts!
+
+2. **Implicit model type**:
+   - Model structure (FVBM vs RBM) was inferred from `n_hidden`
+   - Not immediately clear from config what you're building
+
+3. **Confusing examples**:
+   - "RBM" with `architecture: "fully-connected"` seemed contradictory
+   - Actually correct but required explanation
+
+### Advantages of New Scheme
+
+1. **Explicit dimensions**: Model type and connectivity are separate
+2. **Standard terminology**: "FVBM" and "RBM" match literature
+3. **Self-documenting**: Config clearly states what you're building
+4. **No ambiguity**: "sparse" vs "dense" is unambiguous
+
+## Validation Rules
+
+The `create_topology()` function enforces consistency:
+
+```python
+# VALID configurations
+create_topology(n_visible=10, n_hidden=0, model_type="fvbm", ...)
+create_topology(n_visible=10, n_hidden=5, model_type="rbm", ...)
+
+# INVALID configurations (raises ValueError)
+create_topology(n_visible=10, n_hidden=5, model_type="fvbm", ...)  # FVBM needs n_hidden=0
+create_topology(n_visible=10, n_hidden=0, model_type="rbm", ...)   # RBM needs n_hidden>0
+```
+
+## Complete Examples
+
+### Example 1: Dense FVBM
+Complete graph with 10 visible nodes (45 edges).
+
+```yaml
+true_model:
+  n_visible: 10
+  n_hidden: 0
+  model_type: "fvbm"
+  connectivity: "dense"
+```
+
+**Result**: All 45 possible visible-visible edges exist.
+
+### Example 2: Sparse FVBM
+Sparse graph with ~30% of edges (13-14 edges expected).
+
+```yaml
+true_model:
+  n_visible: 10
+  n_hidden: 0
+  model_type: "fvbm"
+  connectivity: "sparse"
+  connectivity_density: 0.3
+```
+
+**Result**: Random subset of ~30% of 45 possible edges.
+
+### Example 3: Dense RBM (Standard)
+Complete bipartite graph (6 visible, 3 hidden = 18 edges).
+
+```yaml
+true_model:
+  n_visible: 6
+  n_hidden: 3
+  model_type: "rbm"
+  connectivity: "dense"
+```
+
+**Result**: All 18 visible-to-hidden edges exist. Standard RBM.
+
+### Example 4: Sparse RBM
+Sparse bipartite graph with 50% of edges (~100 edges expected).
+
+```yaml
+true_model:
+  n_visible: 20
+  n_hidden: 10
+  model_type: "rbm"
+  connectivity: "sparse"
+  connectivity_density: 0.5
+```
+
+**Result**: Random subset of ~50% of 200 possible bipartite edges.
 
 ## Code Implementation
 
 See [utils/topology.py](../utils/topology.py) for the implementation:
 
-- `create_fully_connected_topology()`: Lines 9-45
-  - Creates dense visible graph when n_hidden=0 (lines 34-38)
-  - Creates complete bipartite graph when n_hidden>0 (lines 40-43)
+- `create_topology()` - Main function (lines 14-75)
+- `_create_dense_edges()` - Dense edge generation (lines 78-98)
+- `_create_sparse_edges()` - Sparse edge generation with connectivity guarantee (lines 101-148)
 
-- `create_restricted_topology()`: Lines 48-109
-  - Creates sparse visible graph when n_hidden=0 (lines 76-81)
-  - Creates sparse bipartite graph when n_hidden>0 (lines 83-87)
-  - Ensures connectivity (lines 89-108)
+### Legacy Functions
 
-## Recommendations
+For backward compatibility during migration, the old functions still exist:
 
-To avoid confusion in the future, consider:
-
-1. **Using more descriptive parameter names**:
-   - `architecture: "dense"` instead of `"fully-connected"`
-   - `architecture: "sparse"` instead of `"restricted"`
-
-2. **Explicitly documenting**:
-   - When `n_hidden > 0` with any architecture, you get a bipartite structure
-   - The architecture parameter only controls edge density, not structure type
-
-3. **Always clarifying in examples**:
-   - Explicitly state whether you're creating an RBM or not
-   - Mention edge density (complete vs sparse)
-
-## Examples with Clear Descriptions
-
-### Example 1: Dense Fully Visible BM
-```yaml
-true_model:
-  n_visible: 10
-  n_hidden: 0              # No hidden units
-  architecture: "fully-connected"  # All visible-visible edges
-# Result: Dense graph with 45 edges
+```python
+# DEPRECATED - use create_topology() instead
+create_fully_connected_topology(n_visible, n_hidden)
+create_restricted_topology(n_visible, n_hidden, connectivity, seed)
 ```
 
-### Example 2: Standard RBM (Complete Bipartite)
+These internally call `create_topology()` with appropriate parameters.
+
+## Future Extensions: Standard Boltzmann Machine (SBM)
+
+Currently not implemented. Would add:
+
 ```yaml
-true_model:
-  n_visible: 6
-  n_hidden: 3              # Hidden units present
-  architecture: "fully-connected"  # All bipartite edges
-# Result: RBM with 18 edges (6×3)
+model_type: "sbm"  # Standard/General Boltzmann Machine
 ```
 
-### Example 3: Sparse Visible BM
-```yaml
-true_model:
-  n_visible: 20
-  n_hidden: 0              # No hidden units
-  architecture: "restricted"  # Sparse connectivity
-  connectivity: 0.3        # 30% of possible edges
-# Result: Sparse graph with ~57 edges (out of 190 possible)
-```
+**Characteristics:**
+- Has hidden units (`n_hidden > 0`)
+- Allows ALL edge types: v-v, v-h, AND h-h
+- Most general BM structure
+- Requires updated sampling for h-h connections
 
-### Example 4: Sparse RBM
-```yaml
-true_model:
-  n_visible: 20
-  n_hidden: 10             # Hidden units present
-  architecture: "restricted"  # Sparse connectivity
-  connectivity: 0.3        # 30% of possible bipartite edges
-# Result: Sparse bipartite graph with ~60 edges (out of 200 possible)
-```
+**Status**: Planned for Phase 2
+
+## Migration from Old Scheme
+
+If you have old configs using `architecture`:
+
+| Old Config | New Config |
+|------------|------------|
+| `architecture: "fully-connected"`<br>`n_hidden: 0` | `model_type: "fvbm"`<br>`connectivity: "dense"` |
+| `architecture: "fully-connected"`<br>`n_hidden: 3` | `model_type: "rbm"`<br>`connectivity: "dense"` |
+| `architecture: "restricted"`<br>`connectivity: 0.3`<br>`n_hidden: 0` | `model_type: "fvbm"`<br>`connectivity: "sparse"`<br>`connectivity_density: 0.3` |
+| `architecture: "restricted"`<br>`connectivity: 0.5`<br>`n_hidden: 5` | `model_type: "rbm"`<br>`connectivity: "sparse"`<br>`connectivity_density: 0.5` |
 
 ## Summary
 
-- **RBM in ML = bipartite structure** (any model with `n_hidden > 0`)
-- **`architecture: "restricted"` = sparse connectivity** (random edge subset)
-- **`architecture: "fully-connected"` = dense connectivity** (all allowed edges)
-- The examples in README.md are technically correct but require explanation
-- This terminology is inherently confusing and worth documenting clearly
+**Three independent dimensions:**
+1. **Model Type** (`model_type`): FVBM vs RBM (structure type)
+2. **Connectivity** (`connectivity`): Dense vs Sparse (edge density)
+3. **Connectivity Density** (`connectivity_density`): Sparsity level (0.0-1.0)
+
+**Key principle**: Each dimension is explicit and self-documenting. No overloaded terminology, no implicit behavior.

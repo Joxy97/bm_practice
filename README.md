@@ -26,9 +26,10 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed usage instructions.
 ## Features
 
 ### Architecture Support
-- **Fully-Connected (n_hidden=0)**: Dense graph - all visible nodes connected to each other
-- **Fully-Connected (n_hidden>0)**: Standard RBM - complete bipartite graph between visible and hidden layers
-- **Restricted**: Sparse connectivity with configurable density (works with or without hidden units)
+- **FVBM (Fully Visible BM)**: Visible nodes only, supports dense or sparse connectivity
+- **RBM (Restricted BM)**: Bipartite structure with hidden units, supports dense or sparse connectivity
+- **Dense Connectivity**: All allowed edges exist
+- **Sparse Connectivity**: Random subset of edges with configurable density
 
 ### Advanced Training Features
 - **Gradient Clipping**: Prevents training divergence (configurable norm/value clipping)
@@ -357,30 +358,38 @@ runs = list_runs('outputs')
 latest = get_latest_run('outputs')
 ```
 
-## Architecture Terminology Clarification
+## Model Configuration
 
-**Important**: The `architecture` parameter can be confusing:
+The new configuration scheme uses clear, explicit parameters:
 
-- **`architecture: "fully-connected"`** means:
-  - If `n_hidden = 0`: Dense graph (all visible nodes connect to each other)
-  - If `n_hidden > 0`: Complete bipartite RBM (all visible-to-hidden connections, no intra-layer connections)
+```yaml
+true_model:
+  n_visible: 10              # Number of visible nodes
+  n_hidden: 0                # Number of hidden nodes (0 for FVBM, >0 for RBM)
+  model_type: "fvbm"         # "fvbm" or "rbm"
+  connectivity: "dense"      # "dense" or "sparse"
+  connectivity_density: 0.7  # Only for sparse (0.0-1.0)
+```
 
-- **`architecture: "restricted"`** means **sparse connectivity** (random subset of edges), NOT "Restricted Boltzmann Machine":
-  - If `n_hidden = 0`: Sparse visible graph
-  - If `n_hidden > 0`: Sparse bipartite graph
+**Model Types:**
+- **`model_type: "fvbm"`** - Fully Visible Boltzmann Machine (requires `n_hidden = 0`)
+- **`model_type: "rbm"`** - Restricted Boltzmann Machine (requires `n_hidden > 0`)
 
-- **"Restricted Boltzmann Machine" (RBM)** in ML literature refers to the bipartite structure with hidden units, achieved by setting `n_hidden > 0` (regardless of density).
+**Connectivity:**
+- **`connectivity: "dense"`** - All allowed edges exist
+- **`connectivity: "sparse"`** - Random subset controlled by `connectivity_density`
 
 ## Examples
 
-### Example 1: Dense Fully Visible BM with Advanced Training
-A dense Boltzmann Machine with only visible nodes (all-to-all connections).
+### Example 1: Dense Fully Visible BM
+A complete graph with only visible nodes (all-to-all connections).
 
 ```yaml
 true_model:
   n_visible: 10
   n_hidden: 0
-  architecture: "fully-connected"  # Dense graph: all visible nodes connected
+  model_type: "fvbm"
+  connectivity: "dense"
 
 training:
   learning_rate: 0.01
@@ -396,28 +405,42 @@ training:
     type: "plateau"
 ```
 
-### Example 2: Restricted Boltzmann Machine (RBM)
-A complete bipartite graph with visible and hidden layers. Note: "fully-connected" here means all possible bipartite connections exist (standard RBM architecture).
+### Example 2: Dense RBM (Complete Bipartite)
+Standard RBM with all visible-to-hidden connections.
 
 ```yaml
 true_model:
   n_visible: 6
   n_hidden: 3
-  architecture: "fully-connected"  # Complete bipartite: all visible-to-hidden connections
+  model_type: "rbm"
+  connectivity: "dense"
 
 training:
   hidden_kind: "exact-disc"  # Exact marginalization over hidden units
 ```
 
-### Example 3: Sparse Visible Network
-A sparse graph with only visible nodes. The "restricted" architecture creates random connectivity (not to be confused with "Restricted Boltzmann Machine" which requires hidden units).
+### Example 3: Sparse Fully Visible BM
+Sparse graph with only 30% of possible visible-visible edges.
 
 ```yaml
 true_model:
   n_visible: 20
   n_hidden: 0
-  architecture: "restricted"  # Sparse: only 30% of possible visible-visible edges
-  connectivity: 0.3
+  model_type: "fvbm"
+  connectivity: "sparse"
+  connectivity_density: 0.3
+```
+
+### Example 4: Sparse RBM
+Sparse bipartite graph with 50% of possible visible-hidden edges.
+
+```yaml
+true_model:
+  n_visible: 20
+  n_hidden: 10
+  model_type: "rbm"
+  connectivity: "sparse"
+  connectivity_density: 0.5
 ```
 
 ## Training Improvements
