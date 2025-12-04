@@ -24,6 +24,7 @@ from utils import (
     plot_model_parameters,
     plot_training_history,
     plot_model_comparison,
+    visualize_topology_from_config,
     get_device,
     print_device_info,
     set_device_seeds,
@@ -73,9 +74,18 @@ def generate_data(config: dict):
         save_path=os.path.join(plot_dir, "true_model_parameters.png")
     )
 
+    # Visualize true model graph topology
+    visualize_topology_from_config(
+        config,
+        model_key='true_model',
+        save_path=os.path.join(plot_dir, "true_model_graph.png"),
+        show=False
+    )
+
     print(f"\n[OK] Data generation complete!")
     print(f"  Dataset: {os.path.join(data_dir, config['data']['dataset_name'])}.csv")
     print(f"  Samples: {len(df)}")
+    print(f"  Graph visualization: {os.path.join(plot_dir, 'true_model_graph.png')}")
 
 
 def train_model(config: dict, dataset_path: str = None, true_model=None):
@@ -210,6 +220,14 @@ def train_model(config: dict, dataset_path: str = None, true_model=None):
         save_path=os.path.join(plot_dir, "learned_model_parameters.png")
     )
 
+    # Visualize learned model graph topology
+    visualize_topology_from_config(
+        config,
+        model_key='learned_model',
+        save_path=os.path.join(plot_dir, "learned_model_graph.png"),
+        show=False
+    )
+
     # Plot training history
     plot_training_history(
         trainer.get_history(),
@@ -217,6 +235,7 @@ def train_model(config: dict, dataset_path: str = None, true_model=None):
     )
 
     print(f"\n[OK] Model training complete!")
+    print(f"  Graph visualization: {os.path.join(plot_dir, 'learned_model_graph.png')}")
 
     return learned_model, trainer
 

@@ -317,8 +317,10 @@ outputs/bm_toy_dataset_20251204_103752/
 ├── logs/
 │   └── test_results.json           # Comprehensive test results
 └── plots/
-    ├── true_model_parameters.png
-    ├── learned_model_parameters.png
+    ├── true_model_parameters.png    # True model biases/weights heatmap
+    ├── true_model_graph.png         # True model graph structure
+    ├── learned_model_parameters.png # Learned model biases/weights heatmap
+    ├── learned_model_graph.png      # Learned model graph structure
     ├── training_history.png
     └── model_comparison.png
 ```
@@ -505,12 +507,6 @@ true_model:
 ## Training Improvements
 
 The pipeline includes Phase 1 stability improvements for robust Boltzmann Machine training:
-
-**Expected Benefits:**
-- ✅ 50-70% better convergence
-- ✅ No training divergence
-- ✅ Better generalization (reduced overfitting)
-- ✅ Faster convergence with adaptive learning rates
 
 **Key Features:**
 1. **Gradient Clipping**: Prevents divergence from exploding gradients
