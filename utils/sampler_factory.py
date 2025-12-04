@@ -73,6 +73,20 @@ def create_sampler(sampler_type: str, params: Optional[Dict[str, Any]] = None) -
         from dimod import RandomSampler
         return RandomSampler()
 
+    elif sampler_type == "gibbs":
+        from utils.gibbs_sampler import GibbsSamplerSpin
+        # Extract Gibbs-specific parameters
+        num_sweeps = params.get("num_sweeps", 1000)
+        burn_in = params.get("burn_in", 100)
+        thinning = params.get("thinning", 1)
+        randomize_order = params.get("randomize_order", True)
+        return GibbsSamplerSpin(
+            num_sweeps=num_sweeps,
+            burn_in=burn_in,
+            thinning=thinning,
+            randomize_order=randomize_order
+        )
+
     # D-Wave Quantum samplers
     elif sampler_type in ["dwave", "advantage"]:
         try:
@@ -180,7 +194,7 @@ def create_sampler(sampler_type: str, params: Optional[Dict[str, Any]] = None) -
 
     else:
         available_samplers = [
-            "Classical: simulated_annealing, tabu, steepest_descent, greedy, exact, random",
+            "Classical: simulated_annealing, tabu, steepest_descent, greedy, exact, random, gibbs",
             "Quantum: dwave, advantage",
             "Hybrid: hybrid, hybrid_bqm, hybrid_dqm, kerberos"
         ]
@@ -255,6 +269,16 @@ Random Sampler
 - Quality: Poor, no optimization
 - Parameters: None
 - Cost: Free (runs locally)
+""",
+        "gibbs": """
+Gibbs MCMC Sampler
+- Type: Markov Chain Monte Carlo with Gibbs updates
+- Best for: High-quality sampling from Boltzmann distributions, accurate probability estimation
+- Speed: Moderate (depends on num_sweeps and burn_in)
+- Quality: Excellent for converged chains, theoretically correct sampling
+- Parameters: num_sweeps (default: 1000), burn_in (default: 100), thinning (default: 1), randomize_order (default: True)
+- Cost: Free (runs locally)
+- Note: True MCMC sampler that samples from the exact Boltzmann distribution (after sufficient burn-in)
 """,
         "dwave": """
 D-Wave Quantum Annealer (QPU)
@@ -334,7 +358,8 @@ def list_available_samplers() -> None:
         "steepest_descent",
         "greedy",
         "exact",
-        "random"
+        "random",
+        "gibbs"
     ]
 
     quantum_samplers = [

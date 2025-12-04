@@ -23,8 +23,7 @@ true_model:
 # Data Generation
 data:
   dataset_name: "bm_toy_dataset"
-  n_samples: 10000
-  num_reads: 5000  # Samples per D-Wave API call
+  n_samples: 5000
   prefactor: 1.0
 
   # Train/Val/Test split
@@ -35,16 +34,46 @@ data:
   # Sampler configuration for data generation
   sampler:
     type: "simulated_annealing"
-    # Classical: "simulated_annealing", "tabu", "steepest_descent", "greedy", "exact", "random"
-    # Quantum: "dwave", "advantage"  (requires D-Wave Leap account)
-    # Hybrid: "hybrid", "kerberos"  (requires D-Wave Leap account)
+    # ===== AVAILABLE SAMPLERS =====
+    # Classical (Free, Local):
+    #   "gibbs"                - Gibbs MCMC sampler (best for probability sampling)
+    #   "simulated_annealing"  - MCMC-based annealing (good general purpose)
+    #   "steepest_descent"     - Local search (fast, local optima)
+    #   "exact"                - Brute force (only for N ≤ 20 variables)
+    #   "random"               - Uniform random (baseline)
+    #   "tabu"                 - Tabu search (has parameter issues)
+    #   "greedy"               - Greedy heuristic (not available in current D-Wave version)
+    #
+    # Quantum (Requires D-Wave Leap Account):
+    #   "dwave"                - D-Wave quantum annealer (QPU)
+    #   "advantage"            - D-Wave Advantage system (alias for dwave)
+    #
+    # Hybrid (Requires D-Wave Leap Account):
+    #   "hybrid"               - LeapHybridSampler (general purpose)
+    #   "hybrid_bqm"           - LeapHybridBQMSampler (alias for hybrid)
+    #   "hybrid_dqm"           - LeapHybridDQMSampler (discrete problems)
+    #   "kerberos"             - KerberosSampler (QPU + classical hybrid)
     params:
-      beta_range: [1.0, 1.0]
-      proposal_acceptance_criteria: "Gibbs"
-      num_reads: 5000
-      # For D-Wave samplers:
-      # solver: null  # Optional: specify solver name
-      # time_limit: 5  # For hybrid samplers (seconds)
+      # Common parameters:
+      num_reads: 5000  # Number of samples to generate
+
+      # Gibbs sampler parameters:
+      # num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
+      # burn_in: 100             # Burn-in period (default: 100)
+      # thinning: 1              # Keep every nth sample (default: 1)
+      # randomize_order: true    # Randomize variable update order (default: true)
+
+      # Simulated Annealing parameters:
+      beta_range: [1.0, 1.0]                    # Temperature schedule [beta_min, beta_max]
+      proposal_acceptance_criteria: "Gibbs"     # "Gibbs" or "Metropolis"
+
+      # Tabu sampler parameters:
+      # tenure: null             # Tabu list size (default: auto)
+      # timeout: 20              # Timeout in seconds (default: 20)
+
+      # D-Wave quantum/hybrid parameters:
+      # solver: null             # Optional: specify solver name
+      # time_limit: 5            # For hybrid samplers (seconds)
 
 # Learned Model Configuration
 learned_model:
@@ -73,15 +102,17 @@ training:
   # Sampler configuration for training
   sampler:
     type: "simulated_annealing"
-    # Classical: "simulated_annealing", "tabu", "steepest_descent", "greedy", "exact", "random"
-    # Quantum: "dwave", "advantage"  (requires D-Wave Leap account)
-    # Hybrid: "hybrid", "kerberos"  (requires D-Wave Leap account)
+    # ===== AVAILABLE SAMPLERS =====
+    # See data generation section above for full list and descriptions
+    # Recommended for training: "gibbs", "simulated_annealing", or "exact" (small models)
     params:
+      # Simulated Annealing (default):
       beta_range: [1.0, 1.0]
       proposal_acceptance_criteria: "Gibbs"
-      # For D-Wave samplers:
-      # solver: null  # Optional: specify solver name
-      # time_limit: 5  # For hybrid samplers (seconds)
+
+      # To use Gibbs instead, uncomment:
+      # num_sweeps: 1000
+      # burn_in: 100
 
   # Optimizer parameters
   optimizer_params:
@@ -146,6 +177,31 @@ logging:
     - "grad_norm"
     - "beta"
     - "val_loss"
+
+# Benchmark Configuration
+# Benchmarks samplers by computing KL divergence from true Boltzmann distribution
+benchmark:
+  # Samplers to benchmark
+  # See data generation section above for full list of available samplers
+  # Recommended: "gibbs", "simulated_annealing", "steepest_descent", "exact", "random"
+  samplers:
+    - "gibbs"                 # Gibbs MCMC (theoretically correct, best quality)
+    - "simulated_annealing"   # SA baseline (good for optimization)
+    - "steepest_descent"      # Fast local search
+    - "exact"                 # Brute force (slow for N > 10)
+    - "random"                # Uniform random baseline
+
+  # Range of problem sizes (number of variables)
+  n_variables_range: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  # Number of samples per benchmark run
+  n_samples: 10000
+
+  # Model configuration for benchmarking (always dense FVBM)
+  model_type: "fvbm"
+  connectivity: "dense"
+  linear_bias_scale: 1.0
+  quadratic_weight_scale: 1.5
 
 # Paths (relative to bm_pipeline/ directory when running main.py directly,
 #        or relative to project root when using run scripts)

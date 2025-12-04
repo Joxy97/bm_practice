@@ -15,6 +15,7 @@ from pathlib import Path
 from dwave.plugins.torch.models import GraphRestrictedBoltzmannMachine as GRBM
 
 from models import DataGenerator, create_dataloaders
+from models.sampler_benchmark import SamplerBenchmark
 from trainers import BoltzmannMachineTrainer
 from utils import (
     load_config,
@@ -370,15 +371,70 @@ def compare_models(config: dict, learned_model: GRBM):
     print(f"\n[OK] Model comparison complete!")
 
 
+def run_benchmark(config: dict):
+    """
+    Run sampler benchmarking suite.
+
+    Args:
+        config: Configuration dictionary
+    """
+    print("\n" + "="*70)
+    print("SAMPLER BENCHMARKING")
+    print("="*70)
+
+    # Set seeds
+    set_seeds(config['seed'])
+
+    # Create benchmark object
+    benchmark = SamplerBenchmark(config)
+
+    # Run benchmark suite
+    df_results = benchmark.run_benchmark_suite()
+
+    # Save results
+    data_dir = config.get('paths', {}).get('data_dir', 'outputs/data')
+    os.makedirs(data_dir, exist_ok=True)
+    results_path = os.path.join(data_dir, 'benchmark_results.csv')
+    benchmark.save_results(df_results, results_path)
+
+    # Check if we have results to visualize
+    if len(df_results) == 0:
+        print("\n[WARNING] No benchmark results to visualize!")
+        print(f"  All benchmarks failed. Check the errors above.")
+        return df_results
+
+    # Create visualizations
+    from utils.benchmark_visualization import plot_benchmark_results, create_summary_table
+
+    plot_dir = config.get('logging', {}).get('plot_dir', 'outputs/plots')
+    os.makedirs(plot_dir, exist_ok=True)
+
+    plot_benchmark_results(
+        df_results,
+        save_dir=plot_dir
+    )
+
+    # Create summary table
+    summary_path = os.path.join(data_dir, 'benchmark_summary.csv')
+    create_summary_table(df_results, summary_path)
+
+    print(f"\n[OK] Benchmark complete!")
+    print(f"  Results: {results_path}")
+    print(f"  Summary: {summary_path}")
+    print(f"  Plots: {plot_dir}/")
+
+    return df_results
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Boltzmann Machine Training Pipeline")
     parser.add_argument(
         '--mode',
         type=str,
-        choices=['generate', 'train', 'test', 'full'],
+        choices=['generate', 'train', 'test', 'full', 'benchmark'],
         default='full',
-        help='Pipeline mode: generate data, train model, test model, or run full pipeline'
+        help='Pipeline mode: generate data, train model, test model, run full pipeline, or benchmark samplers'
     )
     parser.add_argument(
         '--config',
@@ -430,6 +486,10 @@ def main():
         elif args.mode == 'test':
             # Test mode: load checkpoint and test on dataset
             test_model(config, args.checkpoint, args.dataset)
+
+        elif args.mode == 'benchmark':
+            # Benchmark mode: test different samplers
+            run_benchmark(config)
 
         elif args.mode == 'full':
             # Full pipeline: generate + train + compare

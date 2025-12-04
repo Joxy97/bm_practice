@@ -101,8 +101,9 @@ def update_config_paths(config: Dict[str, Any], run_paths: Dict[str, str]) -> Di
         'log_dir': run_paths['log_dir']
     }
 
-    # Update training checkpoint directory
-    config['training']['checkpoint_dir'] = run_paths['checkpoint_dir']
+    # Update training checkpoint directory (if training config exists)
+    if 'training' in config:
+        config['training']['checkpoint_dir'] = run_paths['checkpoint_dir']
 
     # Update logging plot directory
     if 'logging' not in config:
