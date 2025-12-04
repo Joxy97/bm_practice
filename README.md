@@ -32,6 +32,16 @@ See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed usage instructions.
 - **Dense Connectivity**: All allowed edges exist
 - **Sparse Connectivity**: Random subset of edges with configurable density
 
+**Visual Comparison of All Architectures:**
+
+![Architecture Comparison](docs/architecture_comparison.png)
+
+The visualization above shows all six architecture combinations:
+- **Top row**: Dense connectivity (all allowed edges)
+- **Bottom row**: Sparse connectivity (random subset)
+- **Columns**: FVBM (visible-only), RBM (bipartite), SBM (general)
+- **Blue nodes**: Visible units | **Red nodes**: Hidden units
+
 ### Advanced Training Features
 - **Gradient Clipping**: Prevents training divergence (configurable norm/value clipping)
 - **L2/L1 Regularization**: Prevents overfitting and unbounded parameters

@@ -68,6 +68,12 @@ true_model:
 | `sbm` | `dense` | > 0 | v-v, v-h, h-h | Complete general graph |
 | `sbm` | `sparse` | > 0 | v-v, v-h, h-h | Sparse general graph |
 
+**Visual Reference:**
+
+![Architecture Comparison](architecture_comparison.png)
+
+All six architecture combinations visualized side-by-side. Blue nodes are visible units, red nodes are hidden units.
+
 ## Why This Naming?
 
 ### Problems with Old Scheme
