@@ -54,14 +54,26 @@ def visualize_bm_graph(
     # Create figure
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Draw edges
-    nx.draw_networkx_edges(
-        G, pos,
-        edge_color='gray',
-        alpha=0.3,
-        width=1.5,
-        ax=ax
-    )
+    # Draw edges with curved connections for bipartite layouts
+    if model_type in ["rbm", "sbm"]:
+        # Use curved edges to show all connections clearly
+        nx.draw_networkx_edges(
+            G, pos,
+            edge_color='gray',
+            alpha=0.3,
+            width=1.5,
+            ax=ax,
+            connectionstyle='arc3,rad=0.1'
+        )
+    else:
+        # Straight edges for FVBM (circular layout)
+        nx.draw_networkx_edges(
+            G, pos,
+            edge_color='gray',
+            alpha=0.3,
+            width=1.5,
+            ax=ax
+        )
 
     # Draw visible nodes
     nx.draw_networkx_nodes(
@@ -276,8 +288,13 @@ def compare_topologies(
         # Layout
         pos = _create_layout(visible_nodes, hidden_nodes, model_config['model_type'])
 
-        # Draw
-        nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax)
+        # Draw edges with curved connections for bipartite layouts
+        if model_config['model_type'] in ["rbm", "sbm"]:
+            nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax,
+                                   connectionstyle='arc3,rad=0.1')
+        else:
+            nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.3, width=1.5, ax=ax)
+
         nx.draw_networkx_nodes(G, pos, nodelist=visible_nodes, node_color='lightblue',
                                node_size=600, edgecolors='darkblue', linewidths=2, ax=ax)
 
