@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from dwave.plugins.torch.models import GraphRestrictedBoltzmannMachine as GRBM
-from dwave.samplers import SimulatedAnnealingSampler
 
 from utils.topology import create_topology
 from utils.parameters import generate_random_parameters
+from utils.sampler_factory import create_sampler
 
 
 class DataGenerator:
@@ -43,8 +43,8 @@ class DataGenerator:
         # Initialize true model
         self.true_model = self._initialize_true_model()
 
-        # Sampler
-        self.sampler = SimulatedAnnealingSampler()
+        # Create sampler from config
+        self.sampler = self._create_sampler()
 
     def _create_topology(self):
         """Create the graph topology based on config."""
@@ -97,6 +97,20 @@ class DataGenerator:
 
         return grbm
 
+    def _create_sampler(self):
+        """Create sampler from config."""
+        sampler_config = self.data_config.get('sampler', {})
+        sampler_type = sampler_config.get('type', 'simulated_annealing')
+        sampler_params = sampler_config.get('params', {})
+
+        print(f"\nSampler configuration:")
+        print(f"  Type: {sampler_type}")
+
+        sampler = create_sampler(sampler_type, sampler_params)
+        print(f"  Created: {sampler.__class__.__name__}")
+
+        return sampler
+
     def generate(self, save_dir: str = "data") -> pd.DataFrame:
         """
         Generate samples from the true model and save to CSV.
@@ -112,9 +126,12 @@ class DataGenerator:
         print(f"{'='*70}")
 
         n_samples = self.data_config['n_samples']
-        num_reads = self.data_config['num_reads']
         prefactor = self.data_config['prefactor']
-        sampler_params = self.data_config['sampler_params']
+
+        # Get sampler params from config
+        sampler_config = self.data_config.get('sampler', {})
+        sampler_params = sampler_config.get('params', {})
+        num_reads = sampler_params.get('num_reads', self.data_config.get('num_reads', 5000))
 
         print(f"\nSampling {n_samples} samples using MCMC...")
 
@@ -124,7 +141,7 @@ class DataGenerator:
             prefactor=prefactor,
             sample_params={
                 'num_reads': num_reads,
-                **sampler_params
+                **{k: v for k, v in sampler_params.items() if k != 'num_reads'}
             },
             as_tensor=True
         )

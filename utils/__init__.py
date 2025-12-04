@@ -6,6 +6,7 @@ from .visualization import plot_model_parameters, plot_training_history, plot_mo
 from .graph_viz import visualize_bm_graph, visualize_topology_from_config, compare_topologies
 from .config_loader import load_config, save_config
 from .device import get_device, print_device_info, move_to_device, set_device_seeds
+from .sampler_factory import create_sampler, get_sampler_info, list_available_samplers
 from .run_manager import (
     create_run_directory,
     update_config_paths,
@@ -31,6 +32,9 @@ __all__ = [
     'print_device_info',
     'move_to_device',
     'set_device_seeds',
+    'create_sampler',
+    'get_sampler_info',
+    'list_available_samplers',
     'create_run_directory',
     'update_config_paths',
     'list_runs',

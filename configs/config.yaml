@@ -10,9 +10,9 @@ device:
 
 # True Model Configuration (data generation)
 true_model:
-  n_visible: 10
+  n_visible: 4
   n_hidden: 0
-  model_type: "fvbm"  # "fvbm" (Fully Visible BM) | "rbm" (Restricted BM) | "sbm" (Standard BM)
+  model_type: "fvbm"  # "fvbm" (Fully Visible BM) | "sbm" (Standard BM) | "rbm" (Restricted BM)
   connectivity: "dense"  # "dense" | "sparse"
   connectivity_density: 0.7  # Only used if connectivity is "sparse" (0.0-1.0)
 
@@ -32,15 +32,24 @@ data:
   val_ratio: 0.15
   test_ratio: 0.15
 
-  # Sampler parameters
-  sampler_params:
-    beta_range: [1.0, 1.0]
-    proposal_acceptance_criteria: "Gibbs"
+  # Sampler configuration for data generation
+  sampler:
+    type: "simulated_annealing"
+    # Classical: "simulated_annealing", "tabu", "steepest_descent", "greedy", "exact", "random"
+    # Quantum: "dwave", "advantage"  (requires D-Wave Leap account)
+    # Hybrid: "hybrid", "kerberos"  (requires D-Wave Leap account)
+    params:
+      beta_range: [1.0, 1.0]
+      proposal_acceptance_criteria: "Gibbs"
+      num_reads: 5000
+      # For D-Wave samplers:
+      # solver: null  # Optional: specify solver name
+      # time_limit: 5  # For hybrid samplers (seconds)
 
 # Learned Model Configuration
 learned_model:
   # Should match true model topology
-  n_visible: 10
+  n_visible: 4
   n_hidden: 0
   model_type: "fvbm"  # "fvbm" (Fully Visible BM) or "rbm" (Restricted BM)
   connectivity: "dense"  # "dense" or "sparse"
@@ -56,6 +65,23 @@ training:
   n_epochs: 500
   learning_rate: 0.01
   optimizer: "adam"  # "sgd" or "adam"
+
+  # Model sampling during training
+  model_sample_size: 1000
+  prefactor: 1.0
+
+  # Sampler configuration for training
+  sampler:
+    type: "simulated_annealing"
+    # Classical: "simulated_annealing", "tabu", "steepest_descent", "greedy", "exact", "random"
+    # Quantum: "dwave", "advantage"  (requires D-Wave Leap account)
+    # Hybrid: "hybrid", "kerberos"  (requires D-Wave Leap account)
+    params:
+      beta_range: [1.0, 1.0]
+      proposal_acceptance_criteria: "Gibbs"
+      # For D-Wave samplers:
+      # solver: null  # Optional: specify solver name
+      # time_limit: 5  # For hybrid samplers (seconds)
 
   # Optimizer parameters
   optimizer_params:
@@ -74,7 +100,7 @@ training:
   regularization:
     linear_l2: 0.001      # L2 penalty on linear biases
     quadratic_l2: 0.01    # L2 penalty on quadratic weights
-    quadratic_l1: 0.01     # L1 penalty for sparsity (optional)
+    quadratic_l1: 0.00    # L1 penalty for sparsity (optional)
 
   # Learning rate scheduling
   lr_scheduler:
@@ -94,16 +120,12 @@ training:
 
   # Early stopping
   early_stopping:
-    enabled: false                # Enable/disable early stopping
-    patience: 20                 # Number of epochs without improvement before stopping
+    enabled: false              # Enable/disable early stopping
+    patience: 20                # Number of epochs without improvement before stopping
     min_delta: 0.0001           # Minimum change to qualify as improvement
     metric: "val_loss"          # Metric to monitor: "val_loss", "train_loss", "grad_norm"
     mode: "min"                 # "min" for loss, "max" for accuracy-like metrics
     restore_best_weights: true  # Restore best model weights after early stopping
-  
-  # Model sampling during training
-  model_sample_size: 1000
-  prefactor: 1.0
 
   # Hidden unit handling (only if n_hidden > 0)
   hidden_kind: null  # "exact-disc", "sampling", or null (null for fully visible BM)
@@ -114,7 +136,7 @@ training:
 
 # Logging and Visualization
 logging:
-  log_interval: 10  # Log every N epochs
+  log_interval: 1  # Log every N epochs
   save_plots: true
   plot_dir: "outputs/plots"
 

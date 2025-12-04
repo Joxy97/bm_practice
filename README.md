@@ -548,6 +548,7 @@ python -c "import torch; print(torch.cuda.is_available())"
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Detailed usage instructions and examples
 - **[Run Directory System](docs/RUN_DIRECTORY_SYSTEM.md)** - Experiment management and reproducibility
 - **[Architecture Terminology Guide](docs/ARCHITECTURE_TERMINOLOGY.md)** - Understanding architecture parameters and RBM terminology
+- **[Sampler Configuration Guide](docs/SAMPLERS.md)** - Choosing and configuring different samplers
 - **[Configuration Reference](configs/config.yaml)** - Full configuration options with comments
 
 ## Development

@@ -13,7 +13,6 @@ import numpy as np
 from pathlib import Path
 
 from dwave.plugins.torch.models import GraphRestrictedBoltzmannMachine as GRBM
-from dwave.samplers import SimulatedAnnealingSampler
 
 from models import DataGenerator, create_dataloaders
 from trainers import BoltzmannMachineTrainer
@@ -25,6 +24,7 @@ from utils import (
     plot_training_history,
     plot_model_comparison,
     visualize_topology_from_config,
+    create_sampler,
     get_device,
     print_device_info,
     set_device_seeds,
@@ -174,8 +174,17 @@ def train_model(config: dict, dataset_path: str = None, true_model=None):
     print(f"  Linear bias range: [{learned_model.linear.min():.3f}, {learned_model.linear.max():.3f}]")
     print(f"  Quadratic weight range: [{learned_model.quadratic.min():.3f}, {learned_model.quadratic.max():.3f}]")
 
+    # Create sampler from config
+    sampler_config = config['training'].get('sampler', {})
+    sampler_type = sampler_config.get('type', 'simulated_annealing')
+    sampler_params = sampler_config.get('params', {})
+
+    print(f"\nTraining sampler configuration:")
+    print(f"  Type: {sampler_type}")
+    sampler = create_sampler(sampler_type, sampler_params)
+    print(f"  Created: {sampler.__class__.__name__}")
+
     # Create trainer
-    sampler = SimulatedAnnealingSampler()
     trainer = BoltzmannMachineTrainer(learned_model, config, device, sampler)
 
     # Train
@@ -302,9 +311,14 @@ def test_model(config: dict, checkpoint_path: str, dataset_path: str = None):
         quadratic=quadratic
     )
 
+    # Create sampler from config
+    sampler_config = config['training'].get('sampler', {})
+    sampler_type = sampler_config.get('type', 'simulated_annealing')
+    sampler_params = sampler_config.get('params', {})
+    sampler = create_sampler(sampler_type, sampler_params)
+
     # Load checkpoint
     print(f"\nLoading checkpoint: {checkpoint_path}")
-    sampler = SimulatedAnnealingSampler()
     trainer = BoltzmannMachineTrainer(model, config, device, sampler)
     trainer.load_checkpoint(checkpoint_path)
     print("[OK] Checkpoint loaded")
