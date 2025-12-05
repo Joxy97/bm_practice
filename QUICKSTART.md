@@ -49,7 +49,7 @@ config = BMConfig(
 
 ## 3. Implement Your Dataset (if custom data format)
 
-Edit `projects/my_first_project/custom_dataset.py`:
+Edit `projects/my_first_project/dataset.py`:
 
 ```python
 from bm_core.models import BMDataset

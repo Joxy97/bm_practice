@@ -1,5 +1,9 @@
 """
 Visualization utilities for Boltzmann Machines.
+
+This module provides general-purpose visualization functions that work
+for any BM project. Project-specific visualizations (e.g., debugging tools)
+should be placed in the project's own visualization module.
 """
 
 import numpy as np
@@ -156,111 +160,3 @@ def plot_training_history(
     return fig
 
 
-def plot_model_comparison(
-    true_grbm: GRBM,
-    learned_grbm: GRBM,
-    save_path: Optional[str] = None
-):
-    """
-    Compare true vs learned models side-by-side.
-
-    Args:
-        true_grbm: True model
-        learned_grbm: Learned model
-        save_path: Path to save the figure (optional)
-    """
-    fig, axes = plt.subplots(2, 3, figsize=(15, 9))
-
-    # Extract parameters
-    true_linear = true_grbm.linear.detach().cpu().numpy()
-    learned_linear = learned_grbm.linear.detach().cpu().numpy()
-    true_quadratic = true_grbm.quadratic.detach().cpu().numpy()
-    learned_quadratic = learned_grbm.quadratic.detach().cpu().numpy()
-
-    n_nodes = len(true_linear)
-
-    # True biases
-    axes[0, 0].bar(range(n_nodes), true_linear, color='green', alpha=0.7)
-    axes[0, 0].set_title('TRUE Linear Biases', fontsize=12, fontweight='bold')
-    axes[0, 0].set_ylabel('Value', fontsize=11)
-    axes[0, 0].grid(True, alpha=0.3, axis='y')
-    axes[0, 0].axhline(y=0, color='black', linestyle='-', linewidth=0.5)
-
-    # Learned biases
-    axes[0, 1].bar(range(n_nodes), learned_linear, color='blue', alpha=0.7)
-    axes[0, 1].set_title('LEARNED Linear Biases', fontsize=12, fontweight='bold')
-    axes[0, 1].grid(True, alpha=0.3, axis='y')
-    axes[0, 1].axhline(y=0, color='black', linestyle='-', linewidth=0.5)
-
-    # Bias comparison
-    x = np.arange(n_nodes)
-    width = 0.35
-    axes[0, 2].bar(x - width/2, true_linear, width, label='True', color='green', alpha=0.7)
-    axes[0, 2].bar(x + width/2, learned_linear, width, label='Learned', color='blue', alpha=0.7)
-    axes[0, 2].set_title('Bias Comparison', fontsize=12, fontweight='bold')
-    axes[0, 2].legend()
-    axes[0, 2].grid(True, alpha=0.3, axis='y')
-    axes[0, 2].axhline(y=0, color='black', linestyle='-', linewidth=0.5)
-
-    # Create weight matrices
-    edge_idx_i = true_grbm.edge_idx_i.cpu().numpy()
-    edge_idx_j = true_grbm.edge_idx_j.cpu().numpy()
-    n_nodes = len(true_grbm.nodes)
-    max_weight = max(np.abs(true_quadratic).max(), np.abs(learned_quadratic).max())
-
-    # True weight matrix
-    true_weight_matrix = np.zeros((n_nodes, n_nodes))
-    for idx, (i, j) in enumerate(zip(edge_idx_i, edge_idx_j)):
-        true_weight_matrix[i, j] = true_quadratic[idx]
-        true_weight_matrix[j, i] = true_quadratic[idx]
-
-    im1 = axes[1, 0].imshow(true_weight_matrix, cmap='RdBu_r', vmin=-max_weight, vmax=max_weight,
-                            aspect='auto', interpolation='nearest')
-    axes[1, 0].set_title('TRUE Quadratic Weights', fontsize=12, fontweight='bold')
-    axes[1, 0].set_xlabel('Node j', fontsize=11)
-    axes[1, 0].set_ylabel('Node i', fontsize=11)
-    axes[1, 0].set_xticks(range(n_nodes))
-    axes[1, 0].set_yticks(range(n_nodes))
-    plt.colorbar(im1, ax=axes[1, 0])
-
-    # Learned weight matrix
-    learned_weight_matrix = np.zeros((n_nodes, n_nodes))
-    for idx, (i, j) in enumerate(zip(edge_idx_i, edge_idx_j)):
-        learned_weight_matrix[i, j] = learned_quadratic[idx]
-        learned_weight_matrix[j, i] = learned_quadratic[idx]
-
-    im2 = axes[1, 1].imshow(learned_weight_matrix, cmap='RdBu_r', vmin=-max_weight, vmax=max_weight,
-                            aspect='auto', interpolation='nearest')
-    axes[1, 1].set_title('LEARNED Quadratic Weights', fontsize=12, fontweight='bold')
-    axes[1, 1].set_xlabel('Node j', fontsize=11)
-    axes[1, 1].set_xticks(range(n_nodes))
-    axes[1, 1].set_yticks(range(n_nodes))
-    plt.colorbar(im2, ax=axes[1, 1])
-
-    # Weight difference matrix
-    diff_matrix = learned_weight_matrix - true_weight_matrix
-
-    im3 = axes[1, 2].imshow(diff_matrix, cmap='RdBu_r', vmin=-max_weight, vmax=max_weight,
-                            aspect='auto', interpolation='nearest')
-    axes[1, 2].set_title('Difference (Learned - True)', fontsize=12, fontweight='bold')
-    axes[1, 2].set_xlabel('Node j', fontsize=11)
-    axes[1, 2].set_xticks(range(n_nodes))
-    axes[1, 2].set_yticks(range(n_nodes))
-    plt.colorbar(im3, ax=axes[1, 2])
-
-    plt.tight_layout()
-
-    if save_path:
-        os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"Saved: {save_path}")
-
-    # Calculate errors
-    bias_mae = np.mean(np.abs(true_linear - learned_linear))
-    weight_mae = np.mean(np.abs(true_quadratic - learned_quadratic))
-
-    print(f"\nModel Comparison Metrics:")
-    print(f"  Linear Bias MAE:      {bias_mae:.4f}")
-    print(f"  Quadratic Weight MAE: {weight_mae:.4f}")
-
-    return fig, bias_mae, weight_mae

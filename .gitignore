@@ -34,3 +34,8 @@ Thumbs.db
 # Exception: Documentation images
 !docs/project_overview.png
 !docs/architecture_comparison.png
+
+# Projects
+projects/
+!projects/BM_DEBUGGING
+!projects/BM_DEBUGGING/utils
