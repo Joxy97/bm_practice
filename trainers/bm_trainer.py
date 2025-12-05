@@ -95,6 +95,25 @@ class BoltzmannMachineTrainer:
         # Learning rate scheduler
         self.lr_scheduler = self._create_lr_scheduler()
 
+        # Training mode: CD or PCD
+        self.training_mode = self.training_config.get('mode', 'cd').lower()
+
+        # PCD-specific configuration
+        if self.training_mode == 'pcd':
+            pcd_config = self.training_config.get('pcd', {})
+            self.pcd_num_chains = pcd_config.get('num_chains', 100)
+            self.pcd_k_steps = pcd_config.get('k_steps', 10)
+            self.pcd_initialize_from = pcd_config.get('initialize_from', 'random')
+            self.persistent_chains = None  # Initialized on first use
+            print(f"  Training Mode: PCD")
+            print(f"    Persistent chains: {self.pcd_num_chains}")
+            print(f"    k-steps per update: {self.pcd_k_steps}")
+            print(f"    Initialize from: {self.pcd_initialize_from}")
+        else:
+            # CD-k configuration
+            self.cd_k = self.training_config.get('cd_k', 1)
+            print(f"  Training Mode: CD-{self.cd_k}")
+
     def _create_optimizer(self):
         """Create optimizer based on config."""
         optimizer_name = self.training_config['optimizer'].lower()
@@ -168,7 +187,7 @@ class BoltzmannMachineTrainer:
             raise ValueError(f"Unknown scheduler type: {scheduler_type}")
 
     def _sample_from_model(self) -> torch.Tensor:
-        """Sample from the current model."""
+        """Sample from the current model (CD mode)."""
         model_sample_size = self.training_config['model_sample_size']
         prefactor = self.training_config['prefactor']
 
@@ -184,6 +203,58 @@ class BoltzmannMachineTrainer:
         )
 
         return samples
+
+    def _initialize_persistent_chains(self, train_loader: DataLoader) -> torch.Tensor:
+        """Initialize persistent chains for PCD."""
+        if self.pcd_initialize_from == 'random':
+            # Random initialization
+            n_total = len(self.model.nodes)
+            chains = torch.randint(0, 2, (self.pcd_num_chains, n_total),
+                                  device=self.device, dtype=torch.float32) * 2 - 1
+        elif self.pcd_initialize_from == 'data':
+            # Initialize from data samples
+            data_samples = []
+            for batch in train_loader:
+                data_samples.append(batch)
+                if len(data_samples) * batch.shape[0] >= self.pcd_num_chains:
+                    break
+            data_samples = torch.cat(data_samples, dim=0)[:self.pcd_num_chains]
+
+            # Pad with hidden units if needed
+            if self.model.hidden_nodes:
+                n_visible = len(self.model.visible_idx)
+                n_hidden = len(self.model.hidden_nodes)
+                hidden_init = torch.randint(0, 2, (data_samples.shape[0], n_hidden),
+                                           device=self.device, dtype=torch.float32) * 2 - 1
+                chains = torch.cat([data_samples.to(self.device), hidden_init], dim=1)
+            else:
+                chains = data_samples.to(self.device)
+        else:
+            raise ValueError(f"Unknown initialize_from: {self.pcd_initialize_from}")
+
+        return chains
+
+    def _update_persistent_chains(self, k_steps: int) -> torch.Tensor:
+        """Update persistent chains with k MCMC steps."""
+        prefactor = self.training_config['prefactor']
+
+        # Convert chains to numpy for sampler interface
+        chains_np = self.persistent_chains.cpu().numpy()
+
+        # Run k steps of MCMC from current state
+        updated_chains = self.model.sample(
+            self.sampler,
+            prefactor=prefactor,
+            sample_params={
+                'num_reads': self.pcd_num_chains,
+                'num_sweeps': k_steps,
+                'burn_in': 0,  # No burn-in for PCD
+                'initial_states': chains_np,  # Continue from current state
+            },
+            as_tensor=True
+        )
+
+        return updated_chains
 
     def _compute_loss(
         self,
@@ -235,6 +306,13 @@ class BoltzmannMachineTrainer:
         Returns:
             Dictionary with epoch metrics
         """
+        if self.training_mode == 'pcd':
+            return self._train_epoch_pcd(train_loader)
+        else:
+            return self._train_epoch_cd(train_loader)
+
+    def _train_epoch_cd(self, train_loader: DataLoader) -> Dict[str, float]:
+        """Train one epoch using Contrastive Divergence (CD-k)."""
         self.model.train()
 
         epoch_losses = []
@@ -285,6 +363,74 @@ class BoltzmannMachineTrainer:
         # Estimate beta
         try:
             beta = self.model.estimate_beta(model_samples)
+        except:
+            beta = None
+
+        metrics = {
+            'loss': np.mean(epoch_losses),
+            'grad_norm': np.mean(epoch_grad_norms),
+            'beta': beta
+        }
+
+        return metrics
+
+    def _train_epoch_pcd(self, train_loader: DataLoader) -> Dict[str, float]:
+        """Train one epoch using Persistent Contrastive Divergence (PCD)."""
+        self.model.train()
+
+        # Initialize persistent chains on first epoch
+        if self.persistent_chains is None:
+            print("Initializing persistent chains...")
+            self.persistent_chains = self._initialize_persistent_chains(train_loader)
+
+        epoch_losses = []
+        epoch_grad_norms = []
+
+        for batch_idx, data_batch in enumerate(train_loader):
+            # Move data to device
+            data_batch = data_batch.to(self.device)
+
+            # Zero gradients
+            self.optimizer.zero_grad()
+
+            # Compute loss using current persistent chains
+            loss = self._compute_loss(data_batch, self.persistent_chains)
+
+            # Backward pass
+            loss.backward()
+
+            # Gradient clipping
+            if self.grad_clip_enabled:
+                if self.grad_clip_method == 'norm':
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        self.max_grad_norm
+                    )
+                elif self.grad_clip_method == 'value':
+                    torch.nn.utils.clip_grad_value_(
+                        self.model.parameters(),
+                        self.max_grad_value
+                    )
+
+            # Compute gradient norm (after clipping)
+            grad_norm = (
+                self.model._linear.grad.abs().mean().item() +
+                self.model._quadratic.grad.abs().mean().item()
+            ) / 2
+
+            # Update parameters
+            self.optimizer.step()
+
+            # Update persistent chains with k MCMC steps
+            self.persistent_chains = self._update_persistent_chains(self.pcd_k_steps)
+
+            # Record metrics
+            epoch_losses.append(loss.item())
+            epoch_grad_norms.append(grad_norm)
+
+        # Estimate beta
+        try:
+            beta = self.model.estimate_beta(self.persistent_chains)
         except:
             beta = None
 

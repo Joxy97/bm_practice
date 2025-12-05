@@ -126,6 +126,104 @@ def create_sampler(sampler_type: str, params: Optional[Dict[str, Any]] = None) -
         print("INFO: Gumbel-max sampler uses exact enumeration. Only suitable for ~20 variables or less.")
         return GumbelMaxSampler(max_variables=max_variables)
 
+    # GPU-accelerated samplers
+    elif sampler_type == "metropolis_gpu":
+        from samplers.gpu import MetropolisGPUSampler
+        from samplers.dimod_bridge import DimodSamplerBridge
+        temperature = params.get("temperature", 1.0)
+        num_sweeps = params.get("num_sweeps", 1000)
+        burn_in = params.get("burn_in", 100)
+        thinning = params.get("thinning", 1)
+        num_chains = params.get("num_chains", 32)
+        use_cuda = params.get("use_cuda", True)
+        base_sampler = MetropolisGPUSampler(
+            temperature=temperature,
+            num_sweeps=num_sweeps,
+            burn_in=burn_in,
+            thinning=thinning,
+            num_chains=num_chains,
+            use_cuda=use_cuda
+        )
+        return DimodSamplerBridge(base_sampler)
+
+    elif sampler_type == "parallel_tempering_gpu":
+        from samplers.gpu import ParallelTemperingGPUSampler
+        from samplers.dimod_bridge import DimodSamplerBridge
+        num_replicas = params.get("num_replicas", 8)
+        T_min = params.get("T_min", 1.0)
+        T_max = params.get("T_max", 4.0)
+        swap_interval = params.get("swap_interval", 10)
+        num_sweeps = params.get("num_sweeps", 1000)
+        burn_in = params.get("burn_in", 100)
+        thinning = params.get("thinning", 1)
+        use_cuda = params.get("use_cuda", True)
+        base_sampler = ParallelTemperingGPUSampler(
+            num_replicas=num_replicas,
+            T_min=T_min,
+            T_max=T_max,
+            swap_interval=swap_interval,
+            num_sweeps=num_sweeps,
+            burn_in=burn_in,
+            thinning=thinning,
+            use_cuda=use_cuda
+        )
+        return DimodSamplerBridge(base_sampler)
+
+    elif sampler_type == "gibbs_gpu":
+        from samplers.gpu import GibbsGPUSampler
+        from samplers.dimod_bridge import DimodSamplerBridge
+        num_sweeps = params.get("num_sweeps", 1000)
+        burn_in = params.get("burn_in", 100)
+        thinning = params.get("thinning", 1)
+        randomize_order = params.get("randomize_order", True)
+        num_chains = params.get("num_chains", 32)
+        use_cuda = params.get("use_cuda", True)
+        base_sampler = GibbsGPUSampler(
+            num_sweeps=num_sweeps,
+            burn_in=burn_in,
+            thinning=thinning,
+            randomize_order=randomize_order,
+            num_chains=num_chains,
+            use_cuda=use_cuda
+        )
+        return DimodSamplerBridge(base_sampler)
+
+    elif sampler_type == "simulated_annealing_gpu":
+        from samplers.gpu import SimulatedAnnealingGPUSampler
+        from samplers.dimod_bridge import DimodSamplerBridge
+        beta_range = params.get("beta_range", [1.0, 10.0])
+        proposal_acceptance_criteria = params.get("proposal_acceptance_criteria", "Metropolis")
+        num_sweeps = params.get("num_sweeps", 1000)
+        num_chains = params.get("num_chains", 32)
+        use_cuda = params.get("use_cuda", True)
+        base_sampler = SimulatedAnnealingGPUSampler(
+            beta_range=tuple(beta_range),
+            proposal_acceptance_criteria=proposal_acceptance_criteria,
+            num_sweeps=num_sweeps,
+            num_chains=num_chains,
+            use_cuda=use_cuda
+        )
+        return DimodSamplerBridge(base_sampler)
+
+    elif sampler_type == "population_annealing_gpu":
+        from samplers.gpu import PopulationAnnealingGPUSampler
+        from samplers.dimod_bridge import DimodSamplerBridge
+        population_size = params.get("population_size", 1000)
+        num_sweeps = params.get("num_sweeps", 100)
+        beta_min = params.get("beta_min", 0.1)
+        beta_max = params.get("beta_max", 10.0)
+        resample_threshold = params.get("resample_threshold", 0.5)
+        use_cuda = params.get("use_cuda", True)
+        base_sampler = PopulationAnnealingGPUSampler(
+            population_size=population_size,
+            num_sweeps=num_sweeps,
+            beta_min=beta_min,
+            beta_max=beta_max,
+            resample_threshold=resample_threshold,
+            use_cuda=use_cuda
+        )
+        return DimodSamplerBridge(base_sampler)
+
     # D-Wave Quantum samplers
     elif sampler_type in ["dwave", "advantage"]:
         try:
@@ -234,6 +332,7 @@ def create_sampler(sampler_type: str, params: Optional[Dict[str, Any]] = None) -
     else:
         available_samplers = [
             "Classical MCMC: gibbs, metropolis, parallel_tempering, simulated_annealing",
+            "GPU MCMC: gibbs_gpu, metropolis_gpu, parallel_tempering_gpu, simulated_annealing_gpu, population_annealing_gpu",
             "Exact/Quasi-Exact: exact, gumbel_max",
             "Local Search: steepest_descent, tabu, greedy",
             "Baseline: random",
@@ -352,6 +451,56 @@ Gumbel-Max Exact Sampler
 - Cost: Free (runs locally)
 - Note: Generates truly independent samples (no autocorrelation), but limited to small N
 """,
+        "metropolis_gpu": """
+Metropolis GPU Sampler (Multi-Chain Parallel)
+- Type: GPU-accelerated MCMC with massively parallel chains
+- Best for: High-throughput sampling, large num_samples requirements
+- Speed: Very fast (runs multiple chains in parallel on GPU)
+- Quality: Excellent for converged chains, same as CPU Metropolis
+- Parameters: temperature (default: 1.0), num_sweeps (default: 1000), burn_in (default: 100), thinning (default: 1), num_chains (default: 32), use_cuda (default: True)
+- Cost: Free (runs locally on GPU)
+- Note: Requires CUDA-capable GPU and PyTorch. Falls back to CPU if CUDA unavailable
+""",
+        "parallel_tempering_gpu": """
+Parallel Tempering GPU Sampler (Vectorized ΔE)
+- Type: GPU-accelerated replica exchange MCMC with vectorized energy calculations
+- Best for: Complex energy landscapes with GPU acceleration
+- Speed: Fast (all replicas computed in parallel with vectorized operations)
+- Quality: Excellent mixing properties, superior to single-temperature methods
+- Parameters: num_replicas (default: 8), T_min (default: 1.0), T_max (default: 4.0), swap_interval (default: 10), num_sweeps (default: 1000), burn_in (default: 100), thinning (default: 1), use_cuda (default: True)
+- Cost: Free (runs locally on GPU)
+- Note: Vectorized ΔE calculations make swap operations very efficient on GPU
+""",
+        "gibbs_gpu": """
+Gibbs GPU Sampler (Multi-Chain/Block-Gibbs)
+- Type: GPU-accelerated Gibbs MCMC with parallel chains
+- Best for: High-quality probability sampling with GPU acceleration
+- Speed: Fast (multiple chains run in parallel on GPU)
+- Quality: Excellent, theoretically correct Boltzmann sampling after convergence
+- Parameters: num_sweeps (default: 1000), burn_in (default: 100), thinning (default: 1), randomize_order (default: True), num_chains (default: 32), use_cuda (default: True)
+- Cost: Free (runs locally on GPU)
+- Note: Vectorizable conditional updates provide significant GPU speedup
+""",
+        "simulated_annealing_gpu": """
+Simulated Annealing GPU Sampler
+- Type: GPU-accelerated simulated annealing with parallel chains
+- Best for: Optimization problems with GPU acceleration, high throughput
+- Speed: Very fast (many annealing schedules run in parallel)
+- Quality: Good for optimization, multiple parallel runs increase success rate
+- Parameters: beta_range (default: [1.0, 10.0]), proposal_acceptance_criteria (default: "Metropolis"), num_sweeps (default: 1000), num_chains (default: 32), use_cuda (default: True)
+- Cost: Free (runs locally on GPU)
+- Note: Same as Metropolis GPU but with temperature schedule
+""",
+        "population_annealing_gpu": """
+Population Annealing GPU Sampler (Massive Parallel Populations)
+- Type: GPU-accelerated population-based annealing with importance resampling
+- Best for: Complex optimization and sampling with very large populations
+- Speed: Fast (massively parallel populations on GPU)
+- Quality: Excellent, combines advantages of parallel tempering and sequential Monte Carlo
+- Parameters: population_size (default: 1000), num_sweeps (default: 100), beta_min (default: 0.1), beta_max (default: 10.0), resample_threshold (default: 0.5), use_cuda (default: True)
+- Cost: Free (runs locally on GPU)
+- Note: Maintains massive parallel populations with importance weights, ideal for GPU
+""",
         "dwave": """
 D-Wave Quantum Annealer (QPU)
 - Type: Quantum annealing hardware
@@ -431,6 +580,14 @@ def list_available_samplers() -> None:
         "simulated_annealing"
     ]
 
+    gpu_samplers = [
+        "gibbs_gpu",
+        "metropolis_gpu",
+        "parallel_tempering_gpu",
+        "simulated_annealing_gpu",
+        "population_annealing_gpu"
+    ]
+
     exact_samplers = [
         "exact",
         "gumbel_max"
@@ -462,6 +619,13 @@ def list_available_samplers() -> None:
     print("CLASSICAL MCMC SAMPLERS (Free, run locally)")
     print("=" * 80)
     for sampler_type in mcmc_samplers:
+        print(get_sampler_info(sampler_type))
+        print("-" * 80)
+
+    print("\n" + "=" * 80)
+    print("GPU-ACCELERATED MCMC SAMPLERS (Free, run on GPU)")
+    print("=" * 80)
+    for sampler_type in gpu_samplers:
         print(get_sampler_info(sampler_type))
         print("-" * 80)
 

@@ -49,16 +49,31 @@ class GibbsSampler(BaseSampler):
         energy_fn: Callable[[np.ndarray], np.ndarray],
         n_variables: int,
         num_samples: int,
+        initial_states: Optional[np.ndarray] = None,
         **kwargs
     ) -> np.ndarray:
-        """Generate samples using Gibbs sampling."""
+        """Generate samples using Gibbs sampling.
+
+        Args:
+            energy_fn: Energy function
+            n_variables: Number of variables
+            num_samples: Number of samples to generate
+            initial_states: Optional initial state for PCD (n_variables,)
+            **kwargs: Additional parameters
+
+        Returns:
+            Samples array (num_samples, n_variables)
+        """
         num_sweeps = self.params.get('num_sweeps', 1000)
         burn_in = self.params.get('burn_in', 100)
         thinning = self.params.get('thinning', 1)
         randomize_order = self.params.get('randomize_order', True)
 
-        # Initialize random state
-        x = np.random.choice([-1, 1], size=n_variables)
+        # Initialize state: from initial_states if provided, else randomly
+        if initial_states is not None:
+            x = initial_states.copy()
+        else:
+            x = np.random.choice([-1, 1], size=n_variables)
 
         # Cache current energy (compute once at start)
         E_current = energy_fn(x.reshape(1, -1))[0]
@@ -136,16 +151,31 @@ class MetropolisSampler(BaseSampler):
         energy_fn: Callable[[np.ndarray], np.ndarray],
         n_variables: int,
         num_samples: int,
+        initial_states: Optional[np.ndarray] = None,
         **kwargs
     ) -> np.ndarray:
-        """Generate samples using Metropolis-Hastings."""
+        """Generate samples using Metropolis-Hastings.
+
+        Args:
+            energy_fn: Energy function
+            n_variables: Number of variables
+            num_samples: Number of samples to generate
+            initial_states: Optional initial state for PCD (n_variables,)
+            **kwargs: Additional parameters
+
+        Returns:
+            Samples array (num_samples, n_variables)
+        """
         T = self.params.get('temperature', 1.0)
         num_sweeps = self.params.get('num_sweeps', 1000)
         burn_in = self.params.get('burn_in', 100)
         thinning = self.params.get('thinning', 1)
 
-        # Initialize random state
-        x = np.random.choice([-1, 1], size=n_variables)
+        # Initialize state: from initial_states if provided, else randomly
+        if initial_states is not None:
+            x = initial_states.copy()
+        else:
+            x = np.random.choice([-1, 1], size=n_variables)
 
         # Cache current energy (compute once at start)
         E_current = energy_fn(x.reshape(1, -1))[0]
@@ -238,17 +268,33 @@ class ParallelTemperingSampler(BaseSampler):
         energy_fn: Callable[[np.ndarray], np.ndarray],
         n_variables: int,
         num_samples: int,
+        initial_states: Optional[np.ndarray] = None,
         **kwargs
     ) -> np.ndarray:
-        """Generate samples using Parallel Tempering."""
+        """Generate samples using Parallel Tempering.
+
+        Args:
+            energy_fn: Energy function
+            n_variables: Number of variables
+            num_samples: Number of samples to generate
+            initial_states: Optional initial states for PCD (num_replicas, n_variables)
+            **kwargs: Additional parameters
+
+        Returns:
+            Samples array (num_samples, n_variables)
+        """
         num_replicas = self.params.get('num_replicas', 8)
         swap_interval = self.params.get('swap_interval', 10)
         num_sweeps = self.params.get('num_sweeps', 1000)
         burn_in = self.params.get('burn_in', 100)
         thinning = self.params.get('thinning', 1)
 
-        # Initialize all replicas
-        states = np.random.choice([-1, 1], size=(num_replicas, n_variables))
+        # Initialize replicas: from initial_states if provided, else randomly
+        if initial_states is not None:
+            states = initial_states.copy()
+            num_replicas = states.shape[0]
+        else:
+            states = np.random.choice([-1, 1], size=(num_replicas, n_variables))
 
         # Cache energies for all replicas (compute once at start)
         energies = np.array([energy_fn(states[k].reshape(1, -1))[0] for k in range(num_replicas)])

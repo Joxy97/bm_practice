@@ -16,27 +16,44 @@ device:
 
 # Benchmark Configuration
 benchmark:
-  # === Samplers to Benchmark === List of samplers to test. Each sampler will be evaluated across all problem sizes.
-  # Available samplers:
-  #   Classical MCMC (Free, Local):
-  #     "gibbs"                - Gibbs MCMC sampler (best for probability sampling)
-  #     "metropolis"           - Metropolis-Hastings MCMC (temperature-controlled)
-  #     "parallel_tempering"   - Parallel Tempering (replica exchange, best for complex landscapes)
-  #     "simulated_annealing"  - MCMC-based annealing (good general purpose)
+  # === Samplers to Benchmark ===
+  # List of samplers to test. Each sampler will be evaluated across all problem sizes.
   #
-  #   Exact/Quasi-Exact (Free, Local, small N only):
-  #     "exact"                - Brute force exact sampling (only for N ≤ 20 variables)
-  #     "gumbel_max"           - Gumbel-max exact sampling (independent samples, N ≤ 20)
+  # ===== RECOMMENDED PRODUCTION SAMPLERS =====
+  # MCMC Samplers (unbiased, proper sampling from distribution):
+  #   "gibbs"                     - BEST for BM training, theoretically correct
+  #   "gibbs_gpu"                 - GPU version for large-scale (N>1000)
+  #   "metropolis"                - Alternative MCMC sampler
+  #   "metropolis_gpu"            - GPU version for high throughput
+  #   "parallel_tempering"        - For complex/multimodal energy landscapes
+  #   "parallel_tempering_gpu"    - GPU version with vectorized ΔE
   #
-  #   Baseline:
-  #     "random"               - Uniform random (baseline)
+  # ===== EXACT SAMPLERS (Ground Truth, N ≤ 20 only) =====
+  #   "exact"                     - Brute force enumeration (perfect benchmark)
+  #   "gumbel_max"                - Independent exact samples via Gumbel-max
   #
-  #   Quantum (Requires D-Wave Leap Account):
-  #     "dwave"                - D-Wave quantum annealer (QPU)
-  #     "advantage"            - D-Wave Advantage system (alias for dwave)
+  # ===== OPTIMIZERS (Not proper samplers, biased toward low energy) =====
+  # These are OPTIMIZATION TOOLS, not samplers for training! Use them for finding ground states, not for BM training:
+  #   "simulated_annealing"       - Temperature annealing optimizer
+  #   "simulated_annealing_gpu"   - GPU version
+  #   "population_annealing_gpu"  - Population-based optimizer
+  #   "tabu"                      - Tabu search metaheuristic
+  #   "steepest_descent"          - Local search hill climbing
+  #   "greedy"                    - Greedy heuristic
+  #
+  # ===== BASELINE =====
+  #   "random"                    - Uniform random (baseline for comparison)
+  #
+  # ===== QUANTUM (Requires D-Wave Leap Account) =====
+  #   "dwave"                  - D-Wave quantum annealer (QPU)
+  #   "advantage"              - D-Wave Advantage system (alias)
   samplers:
-    - "exact"
-    - "gumbel_max"
+    - "gibbs"
+    - "gibbs_gpu"
+    - "metropolis"
+    - "metropolis_gpu"
+    - "parallel_tempering"
+    - "parallel_tempering_gpu"
 
   # === Problem Sizes ===
   # Range of problem sizes (number of variables) to test.
@@ -79,30 +96,38 @@ benchmark:
     # Common parameters:
     num_reads: 1000  # Number of samples to request (will be capped to n_samples)
 
+    # ===== MCMC SAMPLER PARAMETERS =====
+
     # Gibbs sampler parameters:
     num_sweeps: 1000         # Number of MCMC sweeps
     burn_in: 100             # Burn-in period
     thinning: 1              # Keep every nth sample
     randomize_order: true    # Randomize variable update order
 
-    # Simulated Annealing parameters:
-    beta_range: [1.0, 1.0]                    # Temperature schedule [beta_min, beta_max]
-    proposal_acceptance_criteria: "Gibbs"     # "Gibbs" or "Metropolis"
+    # Gibbs GPU parameters (additional):
+    num_chains: 32           # Number of parallel chains (default: 32)
+    use_cuda: true           # Use CUDA if available (default: true)
 
     # Metropolis sampler parameters:
-    # temperature: 1.0         # Temperature T for acceptance probability (default: 1.0)
-    # num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
-    # burn_in: 100             # Burn-in period (default: 100)
-    # thinning: 1              # Keep every nth sample (default: 1)
+    temperature: 1.0         # Temperature T for acceptance probability (default: 1.0)
+    num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
+    burn_in: 100             # Burn-in period (default: 100)
+    thinning: 1              # Keep every nth sample (default: 1)
+
+    # Metropolis GPU parameters (additional):
+    num_chains: 32           # Number of parallel chains (default: 32)
+    use_cuda: true           # Use CUDA if available (default: true)
 
     # Parallel Tempering parameters:
-    # num_replicas: 8          # Number of temperature replicas (default: 8)
-    # T_min: 1.0               # Minimum temperature (default: 1.0)
-    # T_max: 4.0               # Maximum temperature (default: 4.0)
-    # swap_interval: 10        # Sweeps between swap attempts (default: 10)
-    # num_sweeps: 1000         # Total number of sweeps (default: 1000)
-    # burn_in: 100             # Burn-in period (default: 100)
-    # thinning: 1              # Keep every nth sample (default: 1)
+    num_replicas: 8          # Number of temperature replicas (default: 8)
+    T_min: 1.0               # Minimum temperature (default: 1.0)
+    T_max: 4.0               # Maximum temperature (default: 4.0)
+    swap_interval: 10        # Sweeps between swap attempts (default: 10)
+    num_sweeps: 1000         # Total number of sweeps (default: 1000)
+    burn_in: 100             # Burn-in period (default: 100)
+    thinning: 1              # Keep every nth sample (default: 1)
+
+    # ===== EXACT SAMPLER PARAMETERS =====
 
     # Exact sampler parameters:
     # max_variables: 20        # Maximum number of variables (N <= 20, default: 20)
@@ -110,13 +135,34 @@ benchmark:
     # Gumbel-max sampler parameters:
     # max_variables: 20        # Maximum number of variables (N <= 20, default: 20)
 
-    # Tabu sampler parameters:
+    # ===== OPTIMIZER PARAMETERS (Not for proper sampling) =====
+
+    # Simulated Annealing parameters (OPTIMIZER, not proper sampler):
+    # beta_range: [1.0, 10.0]                   # Inverse temperature schedule
+    # proposal_acceptance_criteria: "Metropolis" # "Gibbs" or "Metropolis"
+    # num_sweeps: 1000         # Number of sweeps
+
+    # Simulated Annealing GPU parameters (additional):
+    # num_chains: 32           # Number of parallel annealing chains
+    # use_cuda: true           # Use CUDA if available
+
+    # Population Annealing GPU parameters (OPTIMIZER):
+    # population_size: 1000    # Size of parallel population
+    # num_sweeps: 100          # Number of temperature steps
+    # beta_min: 0.1            # Initial inverse temperature
+    # beta_max: 10.0           # Final inverse temperature
+    # resample_threshold: 0.5  # Resample when ESS < threshold * population_size
+    # use_cuda: true           # Use CUDA if available
+
+    # Tabu sampler parameters (OPTIMIZER):
     tenure: null             # Tabu list size (default: auto)
     timeout: 20              # Timeout in seconds
 
+    # ===== QUANTUM SAMPLER PARAMETERS =====
+
     # D-Wave quantum/hybrid parameters:
-    solver: null             # Optional: specify solver name
-    time_limit: 5            # For hybrid samplers (seconds)
+    # solver: null             # Optional: specify solver name
+    # time_limit: 5            # For hybrid samplers (seconds)
 
 # Data/Model Generation (for compatibility with run_manager)
 # This section is only used for prefactor value during sampling.

@@ -44,7 +44,11 @@ class SamplerBenchmark:
         if use_cuda == 'auto':
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         elif use_cuda == 'cuda' or use_cuda is True:
-            self.device = torch.device('cuda')
+            if torch.cuda.is_available():
+                self.device = torch.device('cuda')
+            else:
+                print("WARNING: CUDA requested but not available. Falling back to CPU.")
+                self.device = torch.device('cpu')
         else:
             self.device = torch.device('cpu')
 

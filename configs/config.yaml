@@ -126,24 +126,87 @@ training:
   learning_rate: 0.01
   optimizer: "adam"  # "sgd" or "adam"
 
+  # ===== TRAINING MODE =====
+  # Choose training strategy: "cd" (Contrastive Divergence) or "pcd" (Persistent CD)
+  mode: "pcd"  # "cd" or "pcd"
+
+  # CD-k Configuration (when mode: "cd")
+  cd_k: 1  # Number of Gibbs steps for CD-k (default: 1)
+
+  # PCD Configuration (when mode: "pcd")
+  pcd:
+    num_chains: 100         # Number of persistent chains (default: 100)
+    k_steps: 10             # MCMC steps per parameter update (default: 10)
+    initialize_from: "random"  # "random" or "data" (default: "random")
+
   # Model sampling during training
   model_sample_size: 100
   prefactor: 1.0
 
-  # Sampler configuration for training
+  # ===== SAMPLER CONFIGURATION =====
   sampler:
     type: "gibbs"
-    # ===== AVAILABLE SAMPLERS =====
-    # See data generation section above for full list and descriptions
-    # Recommended for training: "gibbs"
+    # ===== PRODUCTION SAMPLERS (Recommended) =====
+    # MCMC Samplers (work with both CD and PCD):
+    #   "gibbs"                  - ⭐ BEST for BM training, PCD-compatible
+    #   "gibbs_gpu"              - ⭐ GPU version for large-scale (N>1000)
+    #   "metropolis"             - Alternative MCMC sampler
+    #   "metropolis_gpu"         - GPU version
+    #   "parallel_tempering"     - For complex landscapes
+    #   "parallel_tempering_gpu" - GPU version
+    #
+    # GPU Recommendations:
+    #   Small (N ≤ 100):      gibbs + CD-1
+    #   Medium (N ~ 1000):    gibbs_gpu + CD-10
+    #   Large (N ≥ 10000):    gibbs_gpu + PCD (k=10, chains=256)
+    #   Very Large (N~10^5):  gibbs_gpu + PCD (k=5, chains=1000)
+    #
+    # ===== EXACT SAMPLERS (Testing Only, N ≤ 20) =====
+    #   "exact"                  - Brute force enumeration
+    #   "gumbel_max"             - Independent exact samples
+    #
+    # ===== OPTIMIZERS (Not for training, use for optimization tasks) =====
+    #   "simulated_annealing"    - ⚠️ Optimization tool, biased sampling
+    #   "simulated_annealing_gpu" - GPU version
+    #   "population_annealing_gpu" - Population-based optimizer
+    #   "tabu"                   - Tabu search optimizer
+    #   "steepest_descent"       - Local search optimizer
+    #   "greedy"                 - Greedy optimizer
+    #
+    # ===== BASELINE =====
+    #   "random"                 - Uniform random baseline
     params:
-      # Simulated Annealing (default):
-      beta_range: [1.0, 1.0]
-      proposal_acceptance_criteria: "Gibbs"
+      # Gibbs sampler parameters:
+      num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
+      burn_in: 100             # Burn-in period (default: 100, set to 0 for PCD)
+      thinning: 1              # Keep every nth sample (default: 1)
+      randomize_order: true    # Randomize variable update order (default: true)
 
-      # To use Gibbs instead, uncomment:
-      num_sweeps: 1000
-      burn_in: 100
+      # Gibbs GPU parameters (additional):
+      # num_chains: 32           # Number of parallel chains (default: 32)
+      # use_cuda: true           # Use CUDA if available (default: true)
+
+      # Metropolis parameters:
+      # temperature: 1.0         # Temperature T (default: 1.0)
+      # num_sweeps: 1000
+      # burn_in: 100
+      # thinning: 1
+
+      # Metropolis GPU parameters (additional):
+      # num_chains: 32
+      # use_cuda: true
+
+      # Parallel Tempering parameters:
+      # num_replicas: 8          # Number of temperature replicas (default: 8)
+      # T_min: 1.0               # Minimum temperature (default: 1.0)
+      # T_max: 4.0               # Maximum temperature (default: 4.0)
+      # swap_interval: 10        # Sweeps between swap attempts (default: 10)
+      # num_sweeps: 1000
+      # burn_in: 100
+      # thinning: 1
+
+      # Parallel Tempering GPU parameters (additional):
+      # use_cuda: true
 
   # Optimizer parameters
   optimizer_params:
