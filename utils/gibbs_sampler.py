@@ -292,16 +292,15 @@ class GibbsSamplerSpin(GibbsSampler):
 
                 # Gibbs update for spin variables
                 for idx in var_order:
-                    # Local field (excluding current variable)
+                    # Compute local field acting on variable idx
                     # For Ising model: E = -sum h_i s_i - sum J_ij s_i s_j
-                    # Field on s_idx: h[idx] + sum_j J[idx,j] * s[j]
-                    state_copy = state.copy()
-                    state_copy[idx] = 0  # Remove self-interaction
+                    # Local field: h[idx] + sum_{j != idx} J[idx,j] * s[j]
+                    # Note: J diagonal should be zero, so we can safely include s[idx]
+                    field = h[idx] + np.dot(J[idx], state)
 
-                    field = h[idx] + np.dot(J[idx], state_copy)
-
-                    # Conditional probability: p(s_i = +1 | s_{-i}) = 1/(1 + exp(-2*field))
-                    # For minimization with negative sign convention
+                    # Conditional probability for spin {-1, +1}:
+                    # p(s_i = +1 | s_{-i}) = 1 / (1 + exp(-2*field))
+                    # This comes from the ratio of Boltzmann weights
                     prob_plus = 1.0 / (1.0 + np.exp(-2.0 * field))
 
                     state[idx] = 1 if rng.random() < prob_plus else -1
@@ -311,12 +310,19 @@ class GibbsSamplerSpin(GibbsSampler):
                     samples.append(state.copy())
 
             # Convert to SampleSet format
-            for sample_state in samples:
-                sample_dict = {variables[i]: int(sample_state[i]) for i in range(n_vars)}
-                energy = bqm.energy(sample_dict)
+            # Compute energies in batch for all collected samples
+            if samples:
+                for sample_state in samples:
+                    sample_dict = {variables[i]: int(sample_state[i]) for i in range(n_vars)}
+                    all_samples.append(sample_dict)
 
-                all_samples.append(sample_dict)
-                all_energies.append(energy)
+                # Batch compute energies efficiently
+                sample_array = np.array(samples)
+                # E = -h^T s - s^T J s (with factor of 0.5 to avoid double counting)
+                linear_energy = -np.dot(sample_array, h)
+                quadratic_energy = -0.5 * np.sum(sample_array * np.dot(sample_array, J), axis=1)
+                energies_batch = linear_energy + quadratic_energy + bqm.offset
+                all_energies.extend(energies_batch.tolist())
 
         sampleset = SampleSet.from_samples(
             all_samples,

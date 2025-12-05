@@ -35,13 +35,8 @@ benchmark:
   #     "dwave"                - D-Wave quantum annealer (QPU)
   #     "advantage"            - D-Wave Advantage system (alias for dwave)
   samplers:
-    - "gibbs"
-    - "metropolis"
-    - "parallel_tempering"
-    - "simulated_annealing"
     - "exact"
     - "gumbel_max"
-    - "random"
 
   # === Problem Sizes ===
   # Range of problem sizes (number of variables) to test.

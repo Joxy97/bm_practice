@@ -9,6 +9,7 @@ distribution (p).
 import numpy as np
 import pandas as pd
 import torch
+import time
 from typing import Dict, List, Tuple
 from collections import Counter
 import itertools
@@ -282,18 +283,24 @@ class SamplerBenchmark:
             n_samples: Number of samples to generate
 
         Returns:
-            Dictionary with benchmark results
+            Dictionary with benchmark results including timing information
         """
         print(f"\n{'='*60}")
         print(f"Benchmarking: {sampler_type} | n_variables={n_variables} | n_samples={n_samples}")
         print(f"{'='*60}")
+
+        # Start total timing
+        total_start = time.time()
 
         # Create true model
         model, model_info = self._create_true_model(n_variables)
 
         # Compute exact distribution
         print("Computing exact Boltzmann distribution...")
+        exact_start = time.time()
         p_true = self._compute_exact_distribution(model, n_variables)
+        exact_time = time.time() - exact_start
+        print(f"  Time: {exact_time:.3f}s")
 
         # Get sampler parameters from config
         default_params = {
@@ -309,21 +316,35 @@ class SamplerBenchmark:
         else:
             sampler_params = default_params
 
-        # Generate samples
+        # Generate samples with timing
         print(f"Generating {n_samples} samples using {sampler_type}...")
+        sampling_start = time.time()
         samples = self._sample_from_model(model, sampler_type, sampler_params, n_samples)
+        sampling_time = time.time() - sampling_start
+        print(f"  Time: {sampling_time:.3f}s")
+        print(f"  Samples/sec: {n_samples/sampling_time:.1f}")
 
         # Compute empirical distribution
         print("Computing empirical distribution...")
+        empirical_start = time.time()
         p_empirical = self._compute_empirical_distribution(samples)
+        empirical_time = time.time() - empirical_start
 
-        # Compute all metrics
+        # Compute all metrics with timing
         print("Computing benchmark metrics...")
+        metrics_start = time.time()
         metrics = self._compute_metrics(p_true, p_empirical, samples)
+        metrics_time = time.time() - metrics_start
+        print(f"  Time: {metrics_time:.3f}s")
+
+        # Total time
+        total_time = time.time() - total_start
 
         # Print metrics
         for metric_name, metric_value in metrics.items():
             print(f"  {metric_name}: {metric_value:.6f}")
+
+        print(f"\nTotal benchmark time: {total_time:.3f}s")
 
         # Build result dictionary
         result = {
@@ -332,6 +353,11 @@ class SamplerBenchmark:
             'n_samples': n_samples,
             'n_unique_states_true': len(p_true),
             'n_unique_states_empirical': len(p_empirical),
+            'sampling_time_sec': sampling_time,
+            'samples_per_sec': n_samples / sampling_time,
+            'exact_distribution_time_sec': exact_time,
+            'metrics_computation_time_sec': metrics_time,
+            'total_time_sec': total_time,
             'model_info': model_info
         }
 

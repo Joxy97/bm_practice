@@ -60,6 +60,9 @@ class GibbsSampler(BaseSampler):
         # Initialize random state
         x = np.random.choice([-1, 1], size=n_variables)
 
+        # Cache current energy (compute once at start)
+        E_current = energy_fn(x.reshape(1, -1))[0]
+
         samples = []
         total_sweeps = burn_in + num_samples * thinning
 
@@ -76,16 +79,17 @@ class GibbsSampler(BaseSampler):
                 x_flip = x.copy()
                 x_flip[i] *= -1
 
-                # Compute energies
-                E_current = energy_fn(x.reshape(1, -1))[0]
+                # Compute energy only for flipped state
                 E_flip = energy_fn(x_flip.reshape(1, -1))[0]
 
-                # Gibbs update: p(x_i=+1 | x_{\i}) = σ(ΔE)
+                # Gibbs update: p(x_i=+1 | x_{-i}) = σ(ΔE)
+                # where ΔE = E_current - E_flip (energy decrease when flipping)
                 delta_E = E_current - E_flip
                 prob_flip = 1.0 / (1.0 + np.exp(-delta_E))
 
                 if np.random.random() < prob_flip:
                     x = x_flip
+                    E_current = E_flip  # Update cached energy
 
             # Collect sample after burn-in
             if sweep >= burn_in and (sweep - burn_in) % thinning == 0:
@@ -143,6 +147,9 @@ class MetropolisSampler(BaseSampler):
         # Initialize random state
         x = np.random.choice([-1, 1], size=n_variables)
 
+        # Cache current energy (compute once at start)
+        E_current = energy_fn(x.reshape(1, -1))[0]
+
         samples = []
         total_sweeps = burn_in + num_samples * thinning
 
@@ -156,8 +163,7 @@ class MetropolisSampler(BaseSampler):
                 x_proposed = x.copy()
                 x_proposed[i] *= -1
 
-                # Compute energy change
-                E_current = energy_fn(x.reshape(1, -1))[0]
+                # Compute energy only for proposed state
                 E_proposed = energy_fn(x_proposed.reshape(1, -1))[0]
                 delta_E = E_proposed - E_current
 
@@ -166,6 +172,7 @@ class MetropolisSampler(BaseSampler):
 
                 if np.random.random() < acceptance_prob:
                     x = x_proposed
+                    E_current = E_proposed  # Update cached energy
 
             # Collect sample after burn-in
             if sweep >= burn_in and (sweep - burn_in) % thinning == 0:
@@ -243,6 +250,9 @@ class ParallelTemperingSampler(BaseSampler):
         # Initialize all replicas
         states = np.random.choice([-1, 1], size=(num_replicas, n_variables))
 
+        # Cache energies for all replicas (compute once at start)
+        energies = np.array([energy_fn(states[k].reshape(1, -1))[0] for k in range(num_replicas)])
+
         samples = []
         total_sweeps = burn_in + num_samples * thinning
 
@@ -259,23 +269,23 @@ class ParallelTemperingSampler(BaseSampler):
                     x_proposed = states[k].copy()
                     x_proposed[i] *= -1
 
-                    # Compute energy change
-                    E_current = energy_fn(states[k].reshape(1, -1))[0]
+                    # Compute energy only for proposed state
                     E_proposed = energy_fn(x_proposed.reshape(1, -1))[0]
-                    delta_E = E_proposed - E_current
+                    delta_E = E_proposed - energies[k]
 
                     # Metropolis acceptance
                     acceptance_prob = min(1.0, np.exp(-delta_E / T_k))
 
                     if np.random.random() < acceptance_prob:
                         states[k] = x_proposed
+                        energies[k] = E_proposed  # Update cached energy
 
             # Attempt swaps between adjacent replicas
             if sweep % swap_interval == 0:
                 for k in range(num_replicas - 1):
-                    # Compute energies
-                    E_k = energy_fn(states[k].reshape(1, -1))[0]
-                    E_k1 = energy_fn(states[k + 1].reshape(1, -1))[0]
+                    # Use cached energies (already computed)
+                    E_k = energies[k]
+                    E_k1 = energies[k + 1]
 
                     # Swap acceptance probability
                     T_k = self.temperatures[k]
@@ -284,8 +294,9 @@ class ParallelTemperingSampler(BaseSampler):
                     swap_prob = min(1.0, np.exp(-delta))
 
                     if np.random.random() < swap_prob:
-                        # Swap states
+                        # Swap states and energies
                         states[k], states[k + 1] = states[k + 1].copy(), states[k].copy()
+                        energies[k], energies[k + 1] = energies[k + 1], energies[k]
 
             # Collect sample from lowest temperature replica (T_min)
             if sweep >= burn_in and (sweep - burn_in) % thinning == 0:

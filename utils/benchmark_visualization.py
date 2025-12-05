@@ -34,10 +34,13 @@ def plot_benchmark_results(
     plt.rcParams['figure.figsize'] = (12, 8)
     plt.rcParams['font.size'] = 11
 
-    # Detect available metrics
+    # Detect available metrics (excluding timing columns)
+    timing_columns = ['sampling_time_sec', 'samples_per_sec', 'exact_distribution_time_sec',
+                     'metrics_computation_time_sec', 'total_time_sec']
     metric_columns = [col for col in df_results.columns
                      if col not in ['n_variables', 'sampler', 'n_samples',
-                                   'n_unique_states_true', 'n_unique_states_empirical']]
+                                   'n_unique_states_true', 'n_unique_states_empirical',
+                                   'model_info'] + timing_columns]
 
     print(f"\nDetected metrics: {metric_columns}")
 
@@ -54,6 +57,23 @@ def plot_benchmark_results(
         combined_file = save_dir / 'combined_metrics_comparison.png'
         _plot_combined_metrics(df_results, metric_columns, combined_file, show)
         plot_files.append(combined_file)
+
+    # 3. Timing visualizations
+    if 'sampling_time_sec' in df_results.columns:
+        # Sampling time comparison
+        timing_file = save_dir / 'sampling_time_comparison.png'
+        _plot_sampling_time(df_results, timing_file, show)
+        plot_files.append(timing_file)
+
+        # Samples per second comparison
+        throughput_file = save_dir / 'sampling_throughput.png'
+        _plot_sampling_throughput(df_results, throughput_file, show)
+        plot_files.append(throughput_file)
+
+        # Scaling analysis
+        scaling_file = save_dir / 'time_scaling_analysis.png'
+        _plot_time_scaling(df_results, scaling_file, show)
+        plot_files.append(scaling_file)
 
     print(f"\nVisualization complete! Saved plots:")
     for plot_file in plot_files:
@@ -340,10 +360,13 @@ def create_summary_table(df: pd.DataFrame, save_path: Path):
         df: DataFrame with benchmark results
         save_path: Path to save summary table (CSV)
     """
-    # Detect metric columns
+    # Detect metric columns (excluding timing)
+    timing_columns = ['sampling_time_sec', 'samples_per_sec', 'exact_distribution_time_sec',
+                     'metrics_computation_time_sec', 'total_time_sec']
     metric_columns = [col for col in df.columns
                      if col not in ['n_variables', 'sampler', 'n_samples',
-                                   'n_unique_states_true', 'n_unique_states_empirical']]
+                                   'n_unique_states_true', 'n_unique_states_empirical',
+                                   'model_info'] + timing_columns]
 
     summary_data = []
 
@@ -357,6 +380,11 @@ def create_summary_table(df: pd.DataFrame, save_path: Path):
             metric_display = get_metric_display_name(metric)
             row[f'{metric_display} (Mean)'] = sampler_data[metric].mean()
             row[f'{metric_display} (Std)'] = sampler_data[metric].std()
+
+        # Add timing statistics if available
+        if 'sampling_time_sec' in df.columns:
+            row['Avg Time (s)'] = sampler_data['sampling_time_sec'].mean()
+            row['Throughput (samples/s)'] = sampler_data['samples_per_sec'].mean()
 
         summary_data.append(row)
 
@@ -378,3 +406,123 @@ def create_summary_table(df: pd.DataFrame, save_path: Path):
     print("="*100)
 
     return summary_df
+
+
+def _plot_sampling_time(df: pd.DataFrame, save_path: Path, show: bool):
+    """
+    Plot sampling time comparison across samplers.
+
+    Shows average sampling time per sampler, highlighting performance differences.
+    """
+    # Calculate average sampling time per sampler
+    avg_time = df.groupby('sampler')['sampling_time_sec'].mean().sort_values()
+
+    plt.figure(figsize=(10, 6))
+    colors = sns.color_palette('rocket', n_colors=len(avg_time))
+
+    bars = plt.barh(range(len(avg_time)), avg_time.values, color=colors)
+    plt.yticks(range(len(avg_time)), avg_time.index)
+
+    # Add value labels on bars
+    for i, (bar, val) in enumerate(zip(bars, avg_time.values)):
+        plt.text(val, i, f' {val:.3f}s', va='center', fontsize=10, fontweight='bold')
+
+    plt.xlabel('Average Sampling Time (seconds)', fontsize=13, fontweight='bold')
+    plt.ylabel('Sampler', fontsize=13, fontweight='bold')
+    plt.title('Sampler Performance: Average Sampling Time (Lower is Better)',
+              fontsize=15, fontweight='bold')
+    plt.grid(True, alpha=0.3, axis='x')
+    plt.tight_layout()
+
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    if show:
+        plt.show()
+    plt.close()
+
+
+def _plot_sampling_throughput(df: pd.DataFrame, save_path: Path, show: bool):
+    """
+    Plot sampling throughput (samples/sec) comparison.
+
+    Shows average throughput per sampler - higher is better.
+    """
+    # Calculate average throughput per sampler
+    avg_throughput = df.groupby('sampler')['samples_per_sec'].mean().sort_values(ascending=False)
+
+    plt.figure(figsize=(10, 6))
+    colors = sns.color_palette('viridis', n_colors=len(avg_throughput))
+
+    bars = plt.barh(range(len(avg_throughput)), avg_throughput.values, color=colors)
+    plt.yticks(range(len(avg_throughput)), avg_throughput.index)
+
+    # Add value labels on bars
+    for i, (bar, val) in enumerate(zip(bars, avg_throughput.values)):
+        if val >= 1000:
+            label = f' {val/1000:.1f}K'
+        else:
+            label = f' {val:.0f}'
+        plt.text(val, i, label, va='center', fontsize=10, fontweight='bold')
+
+    plt.xlabel('Throughput (samples/second)', fontsize=13, fontweight='bold')
+    plt.ylabel('Sampler', fontsize=13, fontweight='bold')
+    plt.title('Sampler Performance: Throughput (Higher is Better)',
+              fontsize=15, fontweight='bold')
+    plt.grid(True, alpha=0.3, axis='x')
+    plt.tight_layout()
+
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    if show:
+        plt.show()
+    plt.close()
+
+
+def _plot_time_scaling(df: pd.DataFrame, save_path: Path, show: bool):
+    """
+    Plot how sampling time scales with problem size for each sampler.
+
+    Shows time vs n_variables to reveal algorithmic complexity.
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+
+    samplers = df['sampler'].unique()
+    colors = sns.color_palette('husl', n_colors=len(samplers))
+    color_map = {sampler: color for sampler, color in zip(samplers, colors)}
+
+    # Left plot: Linear scale
+    for sampler in samplers:
+        sampler_df = df[df['sampler'] == sampler]
+        avg_time = sampler_df.groupby('n_variables')['sampling_time_sec'].mean()
+
+        ax1.plot(avg_time.index, avg_time.values,
+                marker='o', linewidth=2, markersize=8,
+                label=sampler, color=color_map[sampler])
+
+    ax1.set_xlabel('Number of Variables', fontsize=12, fontweight='bold')
+    ax1.set_ylabel('Sampling Time (seconds)', fontsize=12, fontweight='bold')
+    ax1.set_title('Time Scaling: Linear Scale', fontsize=13, fontweight='bold')
+    ax1.legend(loc='best', fontsize=10)
+    ax1.grid(True, alpha=0.3)
+
+    # Right plot: Log scale
+    for sampler in samplers:
+        sampler_df = df[df['sampler'] == sampler]
+        avg_time = sampler_df.groupby('n_variables')['sampling_time_sec'].mean()
+
+        ax2.semilogy(avg_time.index, avg_time.values,
+                    marker='o', linewidth=2, markersize=8,
+                    label=sampler, color=color_map[sampler])
+
+    ax2.set_xlabel('Number of Variables', fontsize=12, fontweight='bold')
+    ax2.set_ylabel('Sampling Time (seconds, log scale)', fontsize=12, fontweight='bold')
+    ax2.set_title('Time Scaling: Log Scale', fontsize=13, fontweight='bold')
+    ax2.legend(loc='best', fontsize=10)
+    ax2.grid(True, alpha=0.3, which='both')
+
+    fig.suptitle('Algorithmic Complexity Analysis: Time vs Problem Size',
+                 fontsize=15, fontweight='bold')
+    plt.tight_layout()
+
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    if show:
+        plt.show()
+    plt.close()
