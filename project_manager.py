@@ -2,8 +2,8 @@
 Project Manager - CLI tool for creating and managing BM projects.
 
 Usage:
-    python -m projects.project_manager create --name my_project
-    python -m projects.project_manager list
+    python project_manager.py create --name my_project
+    python project_manager.py list
 """
 
 import os
@@ -619,7 +619,7 @@ def apply_feature_engineering(data: np.ndarray) -> np.ndarray:
         if not projects:
             print("No projects found.")
             print(f"\nCreate a project with:")
-            print(f"  python -m projects.project_manager create --name my_project")
+            print(f"  python project_manager.py create --name my_project")
         else:
             print(f"\nAvailable projects ({len(projects)}):")
             for p in sorted(projects):

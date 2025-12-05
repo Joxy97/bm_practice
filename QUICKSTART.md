@@ -7,7 +7,7 @@ The BM practice project has been refactored into a clean, modular pipeline. Here
 ## 1. Create a New Project
 
 ```bash
-python -m projects.project_manager create --name my_first_project
+python project_manager.py create --name my_first_project
 ```
 
 This creates:
@@ -214,12 +214,7 @@ config = BMConfig(
 
 ### List all projects
 ```bash
-python -m projects.project_manager list
-```
-
-### Create from custom template
-```bash
-python -m projects.project_manager create --name my_project --template custom_template
+python project_manager.py list
 ```
 
 ## Troubleshooting

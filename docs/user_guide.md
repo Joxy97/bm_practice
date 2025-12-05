@@ -48,7 +48,7 @@ print(f"Available samplers: {len(factory.list_samplers())}")
 ### 1. Create Your First Project
 
 ```bash
-python -m projects.project_manager create --name my_first_bm
+python -m project_manager create --name my_first_bm
 ```
 
 This creates:
@@ -120,10 +120,10 @@ Check `projects/my_first_bm/outputs/`:
 
 ```bash
 # Create from default template
-python -m projects.project_manager create --name mnist_project
+python project_manager.py create --name mnist_project
 
 # List all projects
-python -m projects.project_manager list
+python project_manager.py list
 ```
 
 ### Manual Creation

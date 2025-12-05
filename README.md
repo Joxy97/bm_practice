@@ -27,7 +27,7 @@ pip install -r requirements.txt
 
 ```bash
 # Create a new project
-python -m projects.project_manager create --name my_first_bm
+python -m project_manager create --name my_first_bm
 
 # Prepare your data (CSV with columns v0, v1, ..., vN)
 # Place it in: projects/my_first_bm/data/train.csv

@@ -389,7 +389,7 @@ class SamplerFactory:
 
 ## Project Management
 
-### projects.project_manager.ProjectManager
+### ProjectManager
 
 ```python
 class ProjectManager:
@@ -403,13 +403,12 @@ class ProjectManager:
             projects_dir: Directory containing projects
         """
 
-    def create_project(self, project_name: str, template: str = "template"):
+    def create_project(self, project_name: str):
         """
-        Create new project from template.
+        Create new project with dataset.py and project_config.py.
 
         Args:
             project_name: Name for the new project
-            template: Template to use
         """
 
     def list_projects(self):
@@ -432,12 +431,12 @@ Options:
   --checkpoint PATH          Path to model checkpoint (for test mode)
 ```
 
-### projects.project_manager
+### project_manager
 
 Project management CLI:
 
 ```bash
-python -m projects.project_manager <action> [options]
+python project_manager.py <action> [options]
 
 Actions:
   create                     Create new project
@@ -445,7 +444,6 @@ Actions:
 
 Options (for create):
   --name NAME                Project name (required)
-  --template TEMPLATE        Template to use (default: template)
 ```
 
 ## Usage Examples

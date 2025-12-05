@@ -186,7 +186,7 @@ projects/
 
 **1. User creates project:**
 ```bash
-python -m projects.project_manager create --name mnist_project
+python project_manager.py create --name mnist_project
 ```
 
 **2. User customizes config:**
