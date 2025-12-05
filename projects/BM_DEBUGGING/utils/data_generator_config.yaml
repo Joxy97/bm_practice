@@ -19,7 +19,7 @@ true_model:
 
 # Data Generation Settings
 data:
-  dataset_name: "synthetic_bm_data"
+  dataset_name: "test_run"
   n_samples: 5000
   prefactor: 1.0  # Temperature scaling
 

@@ -2,8 +2,7 @@
 Standalone Data Generator CLI for BM_DEBUGGING.
 
 Usage:
-  python projects/BM_DEBUGGING/utils/run_generator.py \
-    --config projects/BM_DEBUGGING/utils/data_generator_config.yaml
+  python projects/BM_DEBUGGING/utils/run_generator.py --config projects/BM_DEBUGGING/utils/data_generator_config.yaml
 """
 
 import sys

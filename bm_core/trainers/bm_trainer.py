@@ -10,6 +10,7 @@ import numpy as np
 from typing import Dict, Any, Optional, Literal
 from torch.utils.data import DataLoader
 from pathlib import Path
+from dataclasses import asdict, is_dataclass
 
 
 class BoltzmannMachineTrainer:
@@ -39,7 +40,9 @@ class BoltzmannMachineTrainer:
         self.device = device
         self.model = model.to(device)  # Move model to device
         self.config = config
-        self.training_config = config.get('training', config)  # Handle both dict and dataclass
+        self.training_config = config.get('training', config)
+        if is_dataclass(self.training_config):
+            self.training_config = asdict(self.training_config)
 
         # Sampler name (will be looked up from model's sampler_dict)
         self.sampler_name = sampler_name
@@ -124,7 +127,7 @@ class BoltzmannMachineTrainer:
 
     def _create_optimizer(self):
         """Create optimizer based on config."""
-        optimizer_name = self.training_config['optimizer'].lower()
+        optimizer_name = self.training_config['optimizer']
         lr = self.training_config['learning_rate']
 
         # Get optimizer parameters

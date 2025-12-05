@@ -1,0 +1,15 @@
+BM_DEBUGGING Dataset Metadata
+======================================================================
+
+Generated: 20251205_183915
+Dataset: test_run
+Samples: 5000
+Sampler: gibbs_gpu
+
+True Model Configuration:
+  Model type: fvbm
+  Visible units: 10
+  Hidden units: 0
+  Connectivity: dense
+  Linear bias range: [-0.884, 0.901]
+  Quadratic weight range: [-1.438, 1.410]

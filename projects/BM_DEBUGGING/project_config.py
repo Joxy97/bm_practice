@@ -34,7 +34,7 @@ config = BMConfig(
         batch_size=5000,
         n_epochs=100,
         mode="pcd",            # "cd" or "pcd"
-        sampler_name="gibbs",  # "gibbs", "gibbs_gpu", "metropolis", etc.
+        sampler_name="gibbs_gpu",  # "gibbs", "gibbs_gpu", "metropolis", etc.
     ),
 
     # Paths (relative to this file's location)

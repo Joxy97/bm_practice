@@ -18,6 +18,7 @@ import torch
 import numpy as np
 from pathlib import Path
 from typing import Optional
+from dataclasses import asdict
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -234,9 +235,9 @@ def train_model(args, config):
     # Create trainer
     # Convert dataclass to dict if needed for trainer
     if hasattr(config, '__dataclass_fields__'):
-        # It's a dataclass, convert to dict
+        training_dict = asdict(training_config) if hasattr(training_config, '__dataclass_fields__') else training_config
         config_dict = {
-            'training': training_config.__dict__ if hasattr(training_config, '__dict__') else training_config,
+            'training': training_dict,
             'seed': seed
         }
     else:
