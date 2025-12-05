@@ -24,7 +24,7 @@ data:
   prefactor: 1.0  # Temperature scaling
 
   # Sampler for data generation
-  sampler_type: "gibbs"  # Choose from sampler factory
+  sampler_type: "gibbs_gpu"  # Choose from sampler factory
 
   # Sampler-specific parameters
   sampler_params:
