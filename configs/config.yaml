@@ -10,7 +10,7 @@ device:
 
 # True Model Configuration (data generation)
 true_model:
-  n_visible: 4
+  n_visible: 10
   n_hidden: 0
   model_type: "fvbm"  # "fvbm" (Fully Visible BM) | "sbm" (Standard BM) | "rbm" (Restricted BM)
   connectivity: "dense"  # "dense" | "sparse"
@@ -33,15 +33,25 @@ data:
 
   # Sampler configuration for data generation
   sampler:
-    type: "simulated_annealing"
+    type: "gibbs"
     # ===== AVAILABLE SAMPLERS =====
-    # Classical (Free, Local):
+    # Classical MCMC (Free, Local):
     #   "gibbs"                - Gibbs MCMC sampler (best for probability sampling)
+    #   "metropolis"           - Metropolis-Hastings MCMC (temperature-controlled)
+    #   "parallel_tempering"   - Parallel Tempering (replica exchange, best for complex landscapes)
     #   "simulated_annealing"  - MCMC-based annealing (good general purpose)
+    #
+    # Exact/Quasi-Exact (Free, Local, small N only):
+    #   "exact"                - Brute force exact sampling (only for N ≤ 20 variables)
+    #   "gumbel_max"           - Gumbel-max exact sampling (independent samples, N ≤ 20)
+    #
+    # Local Search/Optimization (Free, Local):
     #   "steepest_descent"     - Local search (fast, local optima)
-    #   "exact"                - Brute force (only for N ≤ 20 variables)
-    #   "random"               - Uniform random (baseline)
     #   "tabu"                 - Tabu search (has parameter issues)
+    #   "greedy"               - Greedy heuristic
+    #
+    # Baseline:
+    #   "random"               - Uniform random (baseline)
     #   "greedy"               - Greedy heuristic (not available in current D-Wave version)
     #
     # Quantum (Requires D-Wave Leap Account):
@@ -58,14 +68,35 @@ data:
       num_reads: 5000  # Number of samples to generate
 
       # Gibbs sampler parameters:
-      # num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
-      # burn_in: 100             # Burn-in period (default: 100)
-      # thinning: 1              # Keep every nth sample (default: 1)
-      # randomize_order: true    # Randomize variable update order (default: true)
+      num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
+      burn_in: 100             # Burn-in period (default: 100)
+      thinning: 1              # Keep every nth sample (default: 1)
+      randomize_order: true    # Randomize variable update order (default: true)
 
       # Simulated Annealing parameters:
       beta_range: [1.0, 1.0]                    # Temperature schedule [beta_min, beta_max]
       proposal_acceptance_criteria: "Gibbs"     # "Gibbs" or "Metropolis"
+
+      # Metropolis sampler parameters:
+      # temperature: 1.0         # Temperature T for acceptance probability (default: 1.0)
+      # num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
+      # burn_in: 100             # Burn-in period (default: 100)
+      # thinning: 1              # Keep every nth sample (default: 1)
+
+      # Parallel Tempering parameters:
+      # num_replicas: 8          # Number of temperature replicas (default: 8)
+      # T_min: 1.0               # Minimum temperature (default: 1.0)
+      # T_max: 4.0               # Maximum temperature (default: 4.0)
+      # swap_interval: 10        # Sweeps between swap attempts (default: 10)
+      # num_sweeps: 1000         # Total number of sweeps (default: 1000)
+      # burn_in: 100             # Burn-in period (default: 100)
+      # thinning: 1              # Keep every nth sample (default: 1)
+
+      # Exact sampler parameters:
+      # max_variables: 20        # Maximum number of variables (N <= 20, default: 20)
+
+      # Gumbel-max sampler parameters:
+      # max_variables: 20        # Maximum number of variables (N <= 20, default: 20)
 
       # Tabu sampler parameters:
       # tenure: null             # Tabu list size (default: auto)
@@ -78,7 +109,7 @@ data:
 # Learned Model Configuration
 learned_model:
   # Should match true model topology
-  n_visible: 4
+  n_visible: 10
   n_hidden: 0
   model_type: "fvbm"  # "fvbm" (Fully Visible BM) or "rbm" (Restricted BM)
   connectivity: "dense"  # "dense" or "sparse"
@@ -90,29 +121,29 @@ learned_model:
 
 # Training Configuration
 training:
-  batch_size: 10000
-  n_epochs: 500
+  batch_size: 5000
+  n_epochs: 100
   learning_rate: 0.01
   optimizer: "adam"  # "sgd" or "adam"
 
   # Model sampling during training
-  model_sample_size: 1000
+  model_sample_size: 100
   prefactor: 1.0
 
   # Sampler configuration for training
   sampler:
-    type: "simulated_annealing"
+    type: "gibbs"
     # ===== AVAILABLE SAMPLERS =====
     # See data generation section above for full list and descriptions
-    # Recommended for training: "gibbs", "simulated_annealing", or "exact" (small models)
+    # Recommended for training: "gibbs"
     params:
       # Simulated Annealing (default):
       beta_range: [1.0, 1.0]
       proposal_acceptance_criteria: "Gibbs"
 
       # To use Gibbs instead, uncomment:
-      # num_sweeps: 1000
-      # burn_in: 100
+      num_sweeps: 1000
+      burn_in: 100
 
   # Optimizer parameters
   optimizer_params:

@@ -65,9 +65,10 @@ def create_sampler(sampler_type: str, params: Optional[Dict[str, Any]] = None) -
         return GreedySampler()
 
     elif sampler_type == "exact":
-        from dimod import ExactSolver
-        print("WARNING: ExactSolver uses brute force. Only suitable for ~20 variables or less.")
-        return ExactSolver()
+        from samplers.dimod_bridge import ExactSamplerBridge
+        max_variables = params.get("max_variables", 20)
+        print("WARNING: Exact sampler uses brute force enumeration. Only suitable for ~20 variables or less.")
+        return ExactSamplerBridge(max_variables=max_variables)
 
     elif sampler_type == "random":
         from dimod import RandomSampler
@@ -86,6 +87,44 @@ def create_sampler(sampler_type: str, params: Optional[Dict[str, Any]] = None) -
             thinning=thinning,
             randomize_order=randomize_order
         )
+
+    elif sampler_type == "metropolis":
+        from samplers.dimod_bridge import MetropolisSampler
+        temperature = params.get("temperature", 1.0)
+        num_sweeps = params.get("num_sweeps", 1000)
+        burn_in = params.get("burn_in", 100)
+        thinning = params.get("thinning", 1)
+        return MetropolisSampler(
+            temperature=temperature,
+            num_sweeps=num_sweeps,
+            burn_in=burn_in,
+            thinning=thinning
+        )
+
+    elif sampler_type == "parallel_tempering":
+        from samplers.dimod_bridge import ParallelTemperingSampler
+        num_replicas = params.get("num_replicas", 8)
+        T_min = params.get("T_min", 1.0)
+        T_max = params.get("T_max", 4.0)
+        swap_interval = params.get("swap_interval", 10)
+        num_sweeps = params.get("num_sweeps", 1000)
+        burn_in = params.get("burn_in", 100)
+        thinning = params.get("thinning", 1)
+        return ParallelTemperingSampler(
+            num_replicas=num_replicas,
+            T_min=T_min,
+            T_max=T_max,
+            swap_interval=swap_interval,
+            num_sweeps=num_sweeps,
+            burn_in=burn_in,
+            thinning=thinning
+        )
+
+    elif sampler_type == "gumbel_max":
+        from samplers.dimod_bridge import GumbelMaxSampler
+        max_variables = params.get("max_variables", 20)
+        print("INFO: Gumbel-max sampler uses exact enumeration. Only suitable for ~20 variables or less.")
+        return GumbelMaxSampler(max_variables=max_variables)
 
     # D-Wave Quantum samplers
     elif sampler_type in ["dwave", "advantage"]:
@@ -194,7 +233,10 @@ def create_sampler(sampler_type: str, params: Optional[Dict[str, Any]] = None) -
 
     else:
         available_samplers = [
-            "Classical: simulated_annealing, tabu, steepest_descent, greedy, exact, random, gibbs",
+            "Classical MCMC: gibbs, metropolis, parallel_tempering, simulated_annealing",
+            "Exact/Quasi-Exact: exact, gumbel_max",
+            "Local Search: steepest_descent, tabu, greedy",
+            "Baseline: random",
             "Quantum: dwave, advantage",
             "Hybrid: hybrid, hybrid_bqm, hybrid_dqm, kerberos"
         ]
@@ -280,6 +322,36 @@ Gibbs MCMC Sampler
 - Cost: Free (runs locally)
 - Note: True MCMC sampler that samples from the exact Boltzmann distribution (after sufficient burn-in)
 """,
+        "metropolis": """
+Metropolis-Hastings MCMC Sampler
+- Type: Markov Chain Monte Carlo with single-bit flip proposals
+- Best for: General MCMC sampling with temperature control
+- Speed: Moderate (similar to Gibbs)
+- Quality: Excellent for converged chains, theoretically correct
+- Parameters: temperature (default: 1.0), num_sweeps (default: 1000), burn_in (default: 100), thinning (default: 1)
+- Cost: Free (runs locally)
+- Note: Standard Metropolis with symmetric proposals, temperature parameter allows exploration control
+""",
+        "parallel_tempering": """
+Parallel Tempering (Replica Exchange) MCMC Sampler
+- Type: Advanced MCMC with multiple temperature replicas
+- Best for: Complex energy landscapes, avoiding local minima, high-quality sampling
+- Speed: Slower than single-chain MCMC (runs multiple replicas)
+- Quality: Excellent, superior mixing properties compared to single-temperature MCMC
+- Parameters: num_replicas (default: 8), T_min (default: 1.0), T_max (default: 4.0), swap_interval (default: 10), num_sweeps, burn_in, thinning
+- Cost: Free (runs locally)
+- Note: Best for difficult sampling problems with multiple modes or barriers
+""",
+        "gumbel_max": """
+Gumbel-Max Exact Sampler
+- Type: Exact sampling via Gumbel-max reparameterization
+- Best for: Small problems requiring exact independent samples
+- Speed: O(2^N) enumeration (only feasible for N <= 20)
+- Quality: Perfect - generates exact independent samples from Boltzmann distribution
+- Parameters: max_variables (default: 20), num_reads
+- Cost: Free (runs locally)
+- Note: Generates truly independent samples (no autocorrelation), but limited to small N
+""",
         "dwave": """
 D-Wave Quantum Annealer (QPU)
 - Type: Quantum annealing hardware
@@ -352,14 +424,26 @@ Kerberos Hybrid Sampler (QPU + Classical)
 
 def list_available_samplers() -> None:
     """Print information about all available samplers."""
-    classical_samplers = [
-        "simulated_annealing",
-        "tabu",
-        "steepest_descent",
-        "greedy",
+    mcmc_samplers = [
+        "gibbs",
+        "metropolis",
+        "parallel_tempering",
+        "simulated_annealing"
+    ]
+
+    exact_samplers = [
         "exact",
-        "random",
-        "gibbs"
+        "gumbel_max"
+    ]
+
+    local_search_samplers = [
+        "steepest_descent",
+        "tabu",
+        "greedy"
+    ]
+
+    baseline_samplers = [
+        "random"
     ]
 
     quantum_samplers = [
@@ -375,9 +459,30 @@ def list_available_samplers() -> None:
     ]
 
     print("=" * 80)
-    print("CLASSICAL SAMPLERS (Free, run locally)")
+    print("CLASSICAL MCMC SAMPLERS (Free, run locally)")
     print("=" * 80)
-    for sampler_type in classical_samplers:
+    for sampler_type in mcmc_samplers:
+        print(get_sampler_info(sampler_type))
+        print("-" * 80)
+
+    print("\n" + "=" * 80)
+    print("EXACT/QUASI-EXACT SAMPLERS (Free, run locally, small N only)")
+    print("=" * 80)
+    for sampler_type in exact_samplers:
+        print(get_sampler_info(sampler_type))
+        print("-" * 80)
+
+    print("\n" + "=" * 80)
+    print("LOCAL SEARCH / OPTIMIZATION (Free, run locally)")
+    print("=" * 80)
+    for sampler_type in local_search_samplers:
+        print(get_sampler_info(sampler_type))
+        print("-" * 80)
+
+    print("\n" + "=" * 80)
+    print("BASELINE SAMPLERS (Free, run locally)")
+    print("=" * 80)
+    for sampler_type in baseline_samplers:
         print(get_sampler_info(sampler_type))
         print("-" * 80)
 

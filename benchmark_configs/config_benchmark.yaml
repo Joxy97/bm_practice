@@ -18,24 +18,30 @@ device:
 benchmark:
   # === Samplers to Benchmark === List of samplers to test. Each sampler will be evaluated across all problem sizes.
   # Available samplers:
-  #   Classical (Free, Local):
-  #     "gibbs"                - Gibbs MCMC sampler (theoretically correct)
-  #     "simulated_annealing"  - MCMC-based annealing (good for optimization)
-  #     "steepest_descent"     - Local search (fast, finds local optima)
-  #     "exact"                - Brute force enumeration (only feasible for N ≤ 20)
-  #     "random"               - Uniform random baseline
+  #   Classical MCMC (Free, Local):
+  #     "gibbs"                - Gibbs MCMC sampler (best for probability sampling)
+  #     "metropolis"           - Metropolis-Hastings MCMC (temperature-controlled)
+  #     "parallel_tempering"   - Parallel Tempering (replica exchange, best for complex landscapes)
+  #     "simulated_annealing"  - MCMC-based annealing (good general purpose)
+  #
+  #   Exact/Quasi-Exact (Free, Local, small N only):
+  #     "exact"                - Brute force exact sampling (only for N ≤ 20 variables)
+  #     "gumbel_max"           - Gumbel-max exact sampling (independent samples, N ≤ 20)
+  #
+  #   Baseline:
+  #     "random"               - Uniform random (baseline)
   #
   #   Quantum (Requires D-Wave Leap Account):
-  #     "dwave", "advantage"   - D-Wave quantum annealer (QPU)
-  #
-  #   Hybrid (Requires D-Wave Leap Account):
-  #     "hybrid", "hybrid_bqm", "hybrid_dqm", "kerberos"
+  #     "dwave"                - D-Wave quantum annealer (QPU)
+  #     "advantage"            - D-Wave Advantage system (alias for dwave)
   samplers:
-    - "gibbs"                 # Gibbs MCMC (best quality)
-    - "simulated_annealing"   # SA baseline
-    - "steepest_descent"      # Fast local search
-    - "exact"                 # Brute force (perfect but slow)
-    - "random"                # Random baseline
+    - "gibbs"
+    - "metropolis"
+    - "parallel_tempering"
+    - "simulated_annealing"
+    - "exact"
+    - "gumbel_max"
+    - "random"
 
   # === Problem Sizes ===
   # Range of problem sizes (number of variables) to test.
@@ -46,7 +52,7 @@ benchmark:
   # === Sampling Configuration ===
   # Number of samples to generate per benchmark run.
   # Higher values give better empirical distribution estimates but take longer.
-  n_samples: 100
+  n_samples: 1000
 
   # === True Model Parameters ===
   # Configuration for the random Boltzmann Machines used in benchmarking.
@@ -87,6 +93,27 @@ benchmark:
     # Simulated Annealing parameters:
     beta_range: [1.0, 1.0]                    # Temperature schedule [beta_min, beta_max]
     proposal_acceptance_criteria: "Gibbs"     # "Gibbs" or "Metropolis"
+
+    # Metropolis sampler parameters:
+    # temperature: 1.0         # Temperature T for acceptance probability (default: 1.0)
+    # num_sweeps: 1000         # Number of MCMC sweeps (default: 1000)
+    # burn_in: 100             # Burn-in period (default: 100)
+    # thinning: 1              # Keep every nth sample (default: 1)
+
+    # Parallel Tempering parameters:
+    # num_replicas: 8          # Number of temperature replicas (default: 8)
+    # T_min: 1.0               # Minimum temperature (default: 1.0)
+    # T_max: 4.0               # Maximum temperature (default: 4.0)
+    # swap_interval: 10        # Sweeps between swap attempts (default: 10)
+    # num_sweeps: 1000         # Total number of sweeps (default: 1000)
+    # burn_in: 100             # Burn-in period (default: 100)
+    # thinning: 1              # Keep every nth sample (default: 1)
+
+    # Exact sampler parameters:
+    # max_variables: 20        # Maximum number of variables (N <= 20, default: 20)
+
+    # Gumbel-max sampler parameters:
+    # max_variables: 20        # Maximum number of variables (N <= 20, default: 20)
 
     # Tabu sampler parameters:
     tenure: null             # Tabu list size (default: auto)
