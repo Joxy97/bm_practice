@@ -1,0 +1,91 @@
+# Sampler Benchmark Plugin Configuration
+#
+# This configuration file controls sampler benchmarking and comparison.
+
+# Random seed for reproducibility
+seed: 42
+
+# Benchmark Configuration
+benchmark:
+  # Samplers to benchmark (must be available in sampler factory)
+  samplers:
+    - "gibbs"
+    - "metropolis"
+    - "gibbs_gpu"
+    - "metropolis_gpu"
+    - "parallel_tempering"
+    - "exact_sampler"
+
+  # Problem sizes to test (number of visible units)
+  n_variables_range: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+  # Number of samples to generate per configuration
+  n_samples: 10000
+
+  # Model type for benchmark
+  model_type: "fvbm"  # "fvbm", "rbm", or "sbm"
+
+  # Model parameters
+  model_params:
+    n_hidden: 0
+    connectivity: "dense"
+    linear_bias_scale: 1.0
+    quadratic_weight_scale: 1.5
+
+# Sampler-specific parameters
+sampler_params:
+  gibbs:
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+
+  metropolis:
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+
+  gibbs_gpu:
+    num_sweeps: 1000
+    burn_in: 100
+    num_chains: 32
+
+  metropolis_gpu:
+    num_sweeps: 1000
+    burn_in: 100
+    num_chains: 32
+
+  parallel_tempering:
+    num_sweeps: 1000
+    burn_in: 100
+    num_replicas: 8
+    temperature_range: [0.5, 2.0]
+
+  exact_sampler:
+    num_reads: 10000
+
+# Metrics to compute
+metrics:
+  - "sampling_time"
+  - "samples_per_second"
+  - "kl_divergence"
+  - "total_variation_distance"
+  - "autocorrelation"
+  - "effective_sample_size"
+
+# Output Configuration
+output:
+  save_results: true
+  save_plots: true
+  save_samples: false  # Set to true to save all samples (large files)
+  plot_format: "png"  # "png" or "pdf"
+
+# Paths
+paths:
+  output_dir: "plugins/sampler_benchmark/results"
+  plot_dir: "plugins/sampler_benchmark/plots"
+
+# Notes:
+# - Exact sampler only works for small problem sizes (n_variables <= 10)
+# - GPU samplers require CUDA-enabled GPU
+# - Larger n_samples gives more accurate metrics but takes longer
+# - KL divergence is computed against exact distribution (small problems only)
