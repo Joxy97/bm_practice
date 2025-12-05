@@ -1,0 +1,45 @@
+# Data Generator Plugin Configuration
+#
+# This configuration file controls synthetic data generation for BM training.
+
+# Random seed for reproducibility
+seed: 42
+
+# True Model Configuration (the model we sample from)
+true_model:
+  n_visible: 10
+  n_hidden: 0
+  model_type: "fvbm"  # "fvbm", "rbm", or "sbm"
+  connectivity: "dense"  # "dense" or "sparse"
+  connectivity_density: 0.7  # Only used if connectivity is "sparse"
+
+  # Parameter initialization scales
+  linear_bias_scale: 1.0
+  quadratic_weight_scale: 1.5
+
+# Data Generation Settings
+data:
+  dataset_name: "synthetic_bm_data"
+  n_samples: 5000
+  prefactor: 1.0  # Temperature scaling
+
+  # Sampler for data generation
+  sampler_type: "gibbs"  # Choose from sampler factory
+
+  # Sampler-specific parameters
+  sampler_params:
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+    randomize_order: true
+
+# Output Paths
+paths:
+  output_dir: "projects/BM_DEBUGGING/data"
+  plot_dir: "projects/BM_DEBUGGING/plots"
+
+# Notes:
+# - The sampler_type must be available in the sampler factory
+# - For large models, consider using GPU samplers (e.g., "gibbs_gpu")
+# - The generated CSV will have columns: v0, v1, ..., vN, sample_id
+# - Samples are in SPIN format: {-1, +1}
