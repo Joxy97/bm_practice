@@ -1,578 +1,65 @@
-# Boltzmann Machine Training Pipeline
+# BM Practice - Boltzmann Machine Training Pipeline
 
-A robust, production-ready pipeline for training Boltzmann Machines using D-Wave's PyTorch plugin with advanced training features and automatic experiment tracking.
-
-## Overview
-
-This project provides a complete end-to-end pipeline for:
-- Generating training data from a "true" Boltzmann Machine
-- Training models with advanced optimization techniques
-- Automatic experiment organization with timestamped runs
-- Comprehensive visualization and evaluation
-- Full GPU support (when available)
-
-![Project Overview](docs/project_overview.png)
-
-## Quick Start
-
-```bash
-# Run full pipeline (generate data + train + evaluate)
-python main.py --mode full --config configs/config.yaml
-
-# View past runs
-python list_runs.py
-```
-
-See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed usage instructions.
+A modular, extensible Python package for training and deploying Boltzmann Machines using D-Wave's GRBM implementation with PyTorch.
 
 ## Features
 
-### Architecture Support
-- **FVBM (Fully Visible BM)**: Visible nodes only with v-v edges, supports dense or sparse connectivity
-- **RBM (Restricted BM)**: Bipartite structure with only v-h edges, supports dense or sparse connectivity
-- **SBM (Standard BM)**: General structure with all edge types (v-v, v-h, h-h), supports dense or sparse connectivity
-- **Dense Connectivity**: All allowed edges exist
-- **Sparse Connectivity**: Random subset of edges with configurable density
+- 🎯 **Clean Architecture** - Modular design with clear separation of concerns
+- 🔧 **Type-Safe Configuration** - Python dataclasses with IDE autocomplete
+- 🚀 **25+ Samplers** - Classical MCMC, GPU-accelerated, exact, and optimization-based
+- 📦 **Plugin System** - Self-contained, reusable components
+- 🎨 **Project Templates** - Quick project initialization with standardized structure
+- ⚡ **GPU Support** - CUDA-accelerated samplers for large-scale models
+- 🔬 **Multiple Algorithms** - CD, PCD, various training strategies
+- 📊 **Built-in Visualization** - Training curves, parameter evolution
 
-**Visual Comparison of All Architectures:**
+## Quick Start
 
-![Architecture Comparison](docs/architecture_comparison.png)
+### Installation
 
-The visualization above shows all six architecture combinations:
-- **Top row**: Dense connectivity (all allowed edges)
-- **Bottom row**: Sparse connectivity (random subset)
-- **Columns**: FVBM (visible-only), RBM (bipartite), SBM (general)
-- **Blue nodes**: Visible units | **Red nodes**: Hidden units
+```bash
+git clone https://github.com/your-org/bm_practice.git
+cd bm_practice
+pip install -r requirements.txt
+```
 
-### Advanced Training Features
-- **Gradient Clipping**: Prevents training divergence (configurable norm/value clipping)
-- **L2/L1 Regularization**: Prevents overfitting and unbounded parameters
-- **Learning Rate Scheduling**: ReduceLROnPlateau, Step, Cosine, Exponential
-- **Enhanced Optimizers**: Adam with tuned hyperparameters for noisy gradients
-- **Early Stopping**: Flexible metric monitoring with best weight restoration
-- **GPU Support**: Automatic device detection and management
-- **Checkpointing**: Saves best and final models automatically
+### Create Your First Project
 
-### Experiment Management
-- **Timestamped Run Directories**: Each run gets organized in `outputs/{dataset}_{timestamp}/`
-- **Automatic Config Archiving**: Configuration saved with each run for reproducibility
-- **Run Utilities**: List, compare, and analyze past experiments
-- **Clean Separation**: No file conflicts between different runs
+```bash
+# Create a new project
+python -m projects.project_manager create --name my_first_bm
 
-### Data Management
-- **Automated CSV Storage**: Train/val/test splits with metadata
-- **PyTorch DataLoaders**: Efficient batching and shuffling
-- **Reproducible Splits**: Fixed random seeds for consistency
+# Prepare your data (CSV with columns v0, v1, ..., vN)
+# Place it in: projects/my_first_bm/data/train.csv
 
-### Visualization
-- Model parameters (linear biases and quadratic weights as heatmaps)
-- Training curves (loss, gradients, learning rate, temperature)
-- Side-by-side true vs learned comparison
-- Data statistics and correlations
+# Train
+python -m bm_core.bm --mode train \
+  --config projects/my_first_bm/project_config.py \
+  --dataset projects/my_first_bm/data/train.csv
+```
 
-### Code Quality
-- Modular design with clean separation of concerns
-- Configuration-driven (YAML)
-- Reproducible (fixed random seeds + GPU determinism)
-- Well-documented with type hints
-- Git-friendly (.gitignore for outputs)
+That's it! Your model will be trained and saved to `projects/my_first_bm/outputs/`.
+
+## Documentation
+
+- **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
+- **[User Guide](docs/user_guide.md)** - Comprehensive usage documentation  
+- **[Architecture Guide](docs/architecture.md)** - System design and patterns
+- **[API Reference](docs/api_reference.md)** - Complete API documentation
 
 ## Project Structure
 
 ```
 bm_practice/
-├── configs/
-│   └── config.yaml              # All hyperparameters & training settings
-│
-├── docs/                        # Documentation
-│   ├── QUICKSTART.md            # Quick start guide
-│   └── RUN_DIRECTORY_SYSTEM.md  # Run management documentation
-│
-├── models/
-│   ├── data_generator.py        # DataGenerator class
-│   └── dataset.py               # PyTorch Dataset/DataLoader
-│
-├── trainers/
-│   └── bm_trainer.py            # BoltzmannMachineTrainer with advanced features
-│
-├── utils/
-│   ├── topology.py              # Graph topology creation
-│   ├── parameters.py            # Parameter generation
-│   ├── visualization.py         # Plotting functions (heatmaps, training curves)
-│   ├── config_loader.py         # Config management
-│   ├── device.py                # GPU/CPU device management
-│   └── run_manager.py           # Run directory management
-│
-├── outputs/                     # Timestamped run directories (git-ignored)
-│   └── {dataset}_{timestamp}/   # Each run gets its own directory
-│       ├── config.yaml          # Archived configuration
-│       ├── data/                # Generated datasets
-│       ├── models/              # Final trained models
-│       ├── checkpoints/         # Best model checkpoints
-│       ├── plots/               # All visualizations
-│       └── logs/                # Training logs
-│
-├── main.py                      # Main pipeline entry point
-├── list_runs.py                 # Utility to view past experiments
-├── .gitignore                   # Excludes outputs and cache
-└── README.md                    # This file
+├── bm_core/              # Core training pipeline
+├── plugins/              # Self-contained plugins
+│   └── sampler_factory/ # 25+ sampler implementations
+└── projects/             # Your use-cases
+    └── [your_projects]/
 ```
 
-## Installation
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-```
-
-Required packages:
-- `numpy`, `pandas`, `torch`, `matplotlib`, `seaborn`, `pyyaml`
-- `dwave-ocean-sdk`, `dwave-pytorch-plugin`, `dimod`
-
-## Usage
-
-### Running the Pipeline
-
-**Full pipeline** (generate + train + evaluate):
-```bash
-python main.py --mode full --config configs/config.yaml
-```
-
-**Generate data only:**
-```bash
-python main.py --mode generate --config configs/config.yaml
-```
-
-**Train model only** (requires existing dataset):
-```bash
-python main.py --mode train --config configs/config.yaml --dataset path/to/data.csv
-```
-
-**Test model only** (test a trained checkpoint):
-```bash
-python main.py --mode test --config configs/config.yaml --checkpoint path/to/model.pt --dataset path/to/test_data.csv
-```
-
-### Managing Experiments
-
-**List all runs:**
-```bash
-python list_runs.py
-```
-
-**View latest run details:**
-```bash
-python list_runs.py --latest
-```
-
-**View specific run:**
-```bash
-python list_runs.py --run bm_toy_dataset_20251204_103752
-```
-
-**Reproduce an experiment:**
-```bash
-cd outputs/bm_toy_dataset_20251204_103752/
-python ../../main.py --mode full --config config.yaml
-```
-
-## Configuration
-
-All settings are in `configs/config.yaml`:
-
-```yaml
-# Device configuration
-device:
-  use_cuda: "auto"  # "auto", "cuda", "cpu", or specific device
-
-# Model architecture
-true_model:
-  n_visible: 10
-  n_hidden: 0
-  architecture: "fully-connected"
-
-# Data generation
-data:
-  dataset_name: "bm_toy_dataset"  # Used in run directory name
-  n_samples: 10000
-  train_ratio: 0.7
-  val_ratio: 0.15
-  test_ratio: 0.15
-
-# Training with advanced features
-training:
-  batch_size: 1000
-  n_epochs: 500
-  learning_rate: 0.01
-  optimizer: "adam"
-
-  # Optimizer parameters
-  optimizer_params:
-    betas: [0.85, 0.999]  # Lower momentum for noisy BM gradients
-    eps: 1.0e-7
-
-  # Gradient clipping (prevents divergence)
-  gradient_clipping:
-    enabled: true
-    method: "norm"
-    max_norm: 1.0
-
-  # Regularization
-  regularization:
-    linear_l2: 0.001      # L2 on biases
-    quadratic_l2: 0.01    # L2 on weights
-    quadratic_l1: 0.0     # L1 for sparsity (optional)
-
-  # Learning rate scheduling
-  lr_scheduler:
-    enabled: true
-    type: "plateau"       # "plateau", "step", "cosine", "exponential"
-    factor: 0.5
-    patience: 15
-
-  # Early stopping
-  early_stopping:
-    enabled: true
-    patience: 20
-    metric: "val_loss"
-    restore_best_weights: true
-```
-
-## Training Features Explained
-
-### Gradient Clipping
-Prevents exploding gradients during training (common in BM training):
-```yaml
-gradient_clipping:
-  enabled: true
-  method: "norm"  # Clip by gradient norm
-  max_norm: 1.0
-```
-
-### Regularization
-Prevents overfitting and unbounded parameter growth:
-```yaml
-regularization:
-  linear_l2: 0.001    # Penalty on biases
-  quadratic_l2: 0.01  # Penalty on weights
-```
-
-### Learning Rate Scheduling
-Adapts learning rate during training for better convergence:
-```yaml
-lr_scheduler:
-  enabled: true
-  type: "plateau"  # Reduce LR when validation loss plateaus
-  factor: 0.5      # Reduce by 50%
-  patience: 15     # After 15 epochs without improvement
-```
-
-### GPU Support
-Automatically detects and uses GPU when available:
-```yaml
-device:
-  use_cuda: "auto"  # Automatic detection
-  # or "cuda" to force GPU
-  # or "cpu" to force CPU
-```
-
-## Testing Features
-
-### Comprehensive Test Metrics
-The testing stage provides detailed evaluation metrics:
-
-- **Test Loss**: Average negative log-likelihood with standard deviation
-- **Parameter MAE**: Mean absolute error vs true model (when available)
-  - Overall parameter MAE
-  - Linear bias MAE
-  - Quadratic weight MAE
-
-### Test Results Logging
-All test results are automatically saved to `{run_dir}/logs/test_results.json` including:
-- Test metrics
-- Model information (nodes, edges, hidden units)
-- Training configuration
-- Timestamp
-
-### Test Mode
-Test pre-trained models on new data:
-```bash
-python main.py --mode test \
-  --checkpoint outputs/bm_toy_dataset_20251204_103752/checkpoints/best_model.pt \
-  --dataset path/to/new_data.csv \
-  --config configs/config.yaml
-```
-
-## Output Files
-
-Each run creates a timestamped directory:
-
-```
-outputs/bm_toy_dataset_20251204_103752/
-├── config.yaml                      # Archived configuration
-├── data/
-│   └── bm_toy_dataset.csv          # Generated samples
-├── models/
-│   └── final_model.pt              # Final trained model
-├── checkpoints/
-│   └── best_model.pt               # Best validation loss
-├── logs/
-│   └── test_results.json           # Comprehensive test results
-└── plots/
-    ├── true_model_parameters.png    # True model biases/weights heatmap
-    ├── true_model_graph.png         # True model graph structure
-    ├── learned_model_parameters.png # Learned model biases/weights heatmap
-    ├── learned_model_graph.png      # Learned model graph structure
-    ├── training_history.png
-    └── model_comparison.png
-```
-
-## Key Classes
-
-### DataGenerator
-```python
-from models import DataGenerator
-
-data_gen = DataGenerator(config)
-df = data_gen.generate(save_dir='outputs/data')
-true_model = data_gen.get_true_model()
-```
-
-### BoltzmannMachineTrainer
-```python
-from trainers import BoltzmannMachineTrainer
-from utils import get_device, set_device_seeds
-
-# Setup device
-device = get_device(config)
-set_device_seeds(config['seed'], device)
-
-# Create trainer
-trainer = BoltzmannMachineTrainer(model, config, device, sampler)
-
-# Train with advanced features
-trainer.train(train_loader, val_loader, verbose=True)
-
-# Test
-test_metrics = trainer.test(test_loader)
-history = trainer.get_history()
-```
-
-### Run Management
-```python
-from utils import create_run_directory, list_runs, get_latest_run
-
-# Create new run directory
-run_paths = create_run_directory(config)
-# Returns: {'run_dir': '...', 'data_dir': '...', 'model_dir': '...', ...}
-
-# List all runs
-runs = list_runs('outputs')
-
-# Get latest run
-latest = get_latest_run('outputs')
-```
-
-### Graph Visualization
-```python
-from utils import visualize_topology_from_config, compare_topologies, load_config
-
-# Visualize a topology from config
-config = load_config('configs/config.yaml')
-visualize_topology_from_config(
-    config,
-    model_key='true_model',
-    save_path='outputs/topology_viz.png'
-)
-
-# Compare multiple topologies
-configs = [
-    (config_fvbm, 'true_model', 'Dense FVBM'),
-    (config_rbm, 'true_model', 'Dense RBM'),
-    (config_sbm, 'true_model', 'Dense SBM')
-]
-compare_topologies(configs, save_path='outputs/comparison.png')
-```
-
-## Model Configuration
-
-The new configuration scheme uses clear, explicit parameters:
-
-```yaml
-true_model:
-  n_visible: 10              # Number of visible nodes
-  n_hidden: 0                # Number of hidden nodes (0 for FVBM, >0 for RBM)
-  model_type: "fvbm"         # "fvbm" or "rbm"
-  connectivity: "dense"      # "dense" or "sparse"
-  connectivity_density: 0.7  # Only for sparse (0.0-1.0)
-```
-
-**Model Types:**
-- **`model_type: "fvbm"`** - Fully Visible Boltzmann Machine (requires `n_hidden = 0`)
-- **`model_type: "rbm"`** - Restricted Boltzmann Machine (requires `n_hidden > 0`)
-- **`model_type: "sbm"`** - Standard/General Boltzmann Machine (requires `n_hidden > 0`)
-
-**Connectivity:**
-- **`connectivity: "dense"`** - All allowed edges exist
-- **`connectivity: "sparse"`** - Random subset controlled by `connectivity_density`
-
-## Examples
-
-### Example 1: Dense Fully Visible BM
-A complete graph with only visible nodes (all-to-all connections).
-
-```yaml
-true_model:
-  n_visible: 10
-  n_hidden: 0
-  model_type: "fvbm"
-  connectivity: "dense"
-
-training:
-  learning_rate: 0.01
-  optimizer: "adam"
-  gradient_clipping:
-    enabled: true
-    max_norm: 1.0
-  regularization:
-    linear_l2: 0.001
-    quadratic_l2: 0.01
-  lr_scheduler:
-    enabled: true
-    type: "plateau"
-```
-
-### Example 2: Dense RBM (Complete Bipartite)
-Standard RBM with all visible-to-hidden connections.
-
-```yaml
-true_model:
-  n_visible: 6
-  n_hidden: 3
-  model_type: "rbm"
-  connectivity: "dense"
-
-training:
-  hidden_kind: "exact-disc"  # Exact marginalization over hidden units
-```
-
-### Example 3: Sparse Fully Visible BM
-Sparse graph with only 30% of possible visible-visible edges.
-
-```yaml
-true_model:
-  n_visible: 20
-  n_hidden: 0
-  model_type: "fvbm"
-  connectivity: "sparse"
-  connectivity_density: 0.3
-```
-
-### Example 4: Sparse RBM
-Sparse bipartite graph with 50% of possible visible-hidden edges.
-
-```yaml
-true_model:
-  n_visible: 20
-  n_hidden: 10
-  model_type: "rbm"
-  connectivity: "sparse"
-  connectivity_density: 0.5
-```
-
-### Example 5: Dense Standard BM
-Complete general Boltzmann Machine with all edge types (v-v, v-h, h-h).
-
-```yaml
-true_model:
-  n_visible: 6
-  n_hidden: 4
-  model_type: "sbm"
-  connectivity: "dense"
-
-training:
-  hidden_kind: "exact-disc"  # Exact marginalization over hidden units
-```
-
-### Example 6: Sparse Standard BM
-Sparse general BM with 40% of all possible edges.
-
-```yaml
-true_model:
-  n_visible: 15
-  n_hidden: 8
-  model_type: "sbm"
-  connectivity: "sparse"
-  connectivity_density: 0.4
-```
-
-## Training Improvements
-
-The pipeline includes Phase 1 stability improvements for robust Boltzmann Machine training:
-
-**Key Features:**
-1. **Gradient Clipping**: Prevents divergence from exploding gradients
-2. **L2 Regularization**: Prevents unbounded parameter growth
-3. **Learning Rate Scheduling**: Adaptive learning rate for faster + better convergence
-4. **Tuned Optimizer**: Lower momentum (β₁=0.85) for noisy BM gradients
-
-See [IMPROVEMENTS_training_robustness.md](outputs/bm_toy_dataset_20251204_103752/config.yaml) for detailed analysis.
-
-## Troubleshooting
-
-**Import errors**: Ensure you're in the project root:
-```bash
-cd bm_practice
-python main.py ...
-```
-
-**D-Wave not found**: Install dependencies:
-```bash
-pip install dwave-ocean-sdk dwave-pytorch-plugin
-```
-
-**Out of memory**: Reduce batch size or sample size in config:
-```yaml
-training:
-  batch_size: 500        # Reduce from 1000
-  model_sample_size: 500 # Reduce from 1000
-```
-
-**GPU not detected**: Check PyTorch CUDA installation:
-```bash
-python -c "import torch; print(torch.cuda.is_available())"
-```
-
-## Documentation
-
-- **[Quick Start Guide](docs/QUICKSTART.md)** - Detailed usage instructions and examples
-- **[Run Directory System](docs/RUN_DIRECTORY_SYSTEM.md)** - Experiment management and reproducibility
-- **[Architecture Terminology Guide](docs/ARCHITECTURE_TERMINOLOGY.md)** - Understanding architecture parameters and RBM terminology
-- **[Sampler Configuration Guide](docs/SAMPLERS.md)** - Choosing and configuring different samplers
-- **[Configuration Reference](configs/config.yaml)** - Full configuration options with comments
-
-## Development
-
-The codebase follows best practices:
-- Type hints for clarity
-- Docstrings for all classes/functions
-- Modular design for extensibility
-- Configuration-driven for flexibility
-- Git-ignored outputs for clean repository
-- Automatic experiment tracking
+See [Architecture Guide](docs/architecture.md) for complete structure.
 
 ## License
 
 MIT License
-
-## Citation
-
-If you use this code, please cite:
-```
-Boltzmann Machine Training Pipeline
-https://github.com/yourusername/bm_practice
-```
-
-## Contact
-
-For questions or issues, please open a GitHub issue.

@@ -1,0 +1,103 @@
+# Sampler Factory Plugin Configuration
+#
+# This configuration file controls the sampler factory plugin, which provides
+# a central registry of all available samplers for the BM pipeline.
+
+# GPU Configuration
+gpu:
+  use_cuda: true  # Use CUDA if available
+  default_num_chains: 32  # Default number of parallel chains for GPU samplers
+
+# Default Parameters for Each Sampler
+# These are used when samplers are initialized by the factory
+defaults:
+  # Gibbs Sampler
+  gibbs:
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+    randomize_order: true
+
+  # Gibbs GPU Sampler
+  gibbs_gpu:
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+    randomize_order: true
+    num_chains: 32  # Overrides default_num_chains if specified
+
+  # Metropolis Sampler
+  metropolis:
+    temperature: 1.0
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+
+  # Metropolis GPU Sampler
+  metropolis_gpu:
+    temperature: 1.0
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+    num_chains: 32
+
+  # Parallel Tempering Sampler
+  parallel_tempering:
+    num_replicas: 8
+    T_min: 1.0
+    T_max: 4.0
+    swap_interval: 10
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+
+  # Parallel Tempering GPU Sampler
+  parallel_tempering_gpu:
+    num_replicas: 8
+    T_min: 1.0
+    T_max: 4.0
+    swap_interval: 10
+    num_sweeps: 1000
+    burn_in: 100
+    thinning: 1
+
+# Enabled Samplers
+# Specify which samplers to register. Comment out categories or individual
+# samplers to disable them.
+enabled_samplers:
+  # Classical MCMC Samplers (always available, no external dependencies)
+  classical:
+    - gibbs
+    - metropolis
+    - parallel_tempering
+    - simulated_annealing
+
+  # GPU Accelerated Samplers (requires CUDA)
+  gpu:
+    - gibbs_gpu
+    - metropolis_gpu
+    - parallel_tempering_gpu
+    - simulated_annealing_gpu
+    - population_annealing_gpu
+
+  # Exact Samplers (brute force, only for small problems N <= 20)
+  exact:
+    - exact
+    - gumbel_max
+
+  # Optimization Samplers (local search, good for optimization not sampling)
+  optimization:
+    - steepest_descent
+    - tabu
+    - greedy
+
+  # Baseline Samplers
+  baseline:
+    - random
+
+# Notes:
+# - Quantum samplers (D-Wave QPU) are not pre-registered due to authentication
+#   requirements. Use them directly via D-Wave API if needed.
+# - Hybrid samplers (LeapHybrid) are also not pre-registered.
+# - To disable a sampler, remove it from the list or comment out the entire category.
+# - GPU samplers will gracefully fall back to CPU if CUDA is not available.
